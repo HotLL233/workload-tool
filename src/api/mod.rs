@@ -21,6 +21,7 @@ pub mod article_handler;
 pub mod auth_handler;
 pub mod backup_handler;
 pub mod export_preview_handler;
+pub mod sample_info_handler;
 
 use axum::{Router, Json, routing::get};
 use serde::Serialize;
@@ -63,4 +64,5 @@ pub fn api_router(pool: DbPool, config: Arc<AppConfig>) -> Router {
         .merge(export_preview_handler::router(pool.clone()))
         .merge(help_handler::router(pool.clone()))
         .merge(article_handler::router(pool.clone()))
+        .merge(sample_info_handler::router(pool.clone()))
 }

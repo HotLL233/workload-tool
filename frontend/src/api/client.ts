@@ -7,6 +7,7 @@ import type {
   Method,
   WorkRecord,
   SampleRecord,
+  SampleInfoRecord,
   SampleStats,
   AuditLog,
   StatsSummary,
@@ -366,5 +367,22 @@ export const deleteHelpArticle = (id: number): Promise<ApiResponse<null>> =>
 
 export const updateHelpArticle = (id: number, data: { title?: string; is_visible?: boolean; sort_order?: number }): Promise<ApiResponse<HelpArticle>> =>
   client.put(`/help-articles/${id}`, data).then(r => r.data);
+
+// ========== v0.4.22: 样品信息登记 API ==========
+
+export const getSampleInfoRecords = (params?: { detection_type?: string; status?: string; page?: number; page_size?: number }): Promise<ApiResponse<PaginatedResponse<SampleInfoRecord>>> =>
+  client.get('/sample-info', { params }).then(r => r.data);
+
+export const createSampleInfo = (data: { batch_no: string; user_name: string; lab_name: string; project_name: string; submitted_at?: string; detection_date: string; main_components: string; detection_type: string; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
+  client.post('/sample-info', data).then(r => r.data);
+
+export const updateSampleInfo = (id: number, data: { status?: string; batch_no?: string; user_name?: string; lab_name?: string; project_name?: string; submitted_at?: string; detection_date?: string; main_components?: string; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
+  client.put(`/sample-info/${id}`, data).then(r => r.data);
+
+export const deleteSampleInfo = (id: number): Promise<ApiResponse<null>> =>
+  client.delete(`/sample-info/${id}`).then(r => r.data);
+
+export const updateSampleInfoStatus = (id: number, status: string): Promise<ApiResponse<SampleInfoRecord>> =>
+  client.put(`/sample-info/${id}/status`, { status }).then(r => r.data);
 
 export default client;

@@ -284,5 +284,31 @@ pub fn run(conn: &rusqlite::Connection) -> Result<()> {
         );"
     ).ok();
 
+    // ═══════════════════════════════════════════════════════════
+    // v0.4.22: 样品信息登记模块
+    // ═══════════════════════════════════════════════════════════
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sample_info_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            status TEXT NOT NULL DEFAULT '待检测',
+            seq_no INTEGER NOT NULL,
+            batch_no TEXT NOT NULL,
+            user_name TEXT NOT NULL,
+            lab_name TEXT NOT NULL,
+            project_name TEXT NOT NULL,
+            submitted_at TEXT NOT NULL,
+            detection_date TEXT NOT NULL,
+            main_components TEXT NOT NULL,
+            detection_type TEXT NOT NULL,
+            notes TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            updated_at TEXT DEFAULT (datetime('now','localtime')),
+            deleted_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_sir_detection_type ON sample_info_records(detection_type);
+        CREATE INDEX IF NOT EXISTS idx_sir_status ON sample_info_records(status);
+        CREATE INDEX IF NOT EXISTS idx_sir_submitted ON sample_info_records(submitted_at);"
+    ).ok();
+
     Ok(())
 }

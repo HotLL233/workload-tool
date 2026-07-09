@@ -6,3 +6,4 @@ pub mod rd_record_repo;
 pub mod audit_repo;
 pub mod help_repo;
 pub mod article_repo;
+pub mod sample_info_repo;

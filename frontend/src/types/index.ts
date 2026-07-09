@@ -371,3 +371,21 @@ export interface Sheet10Row {
   method: string;
   quantity: number;
 }
+
+// ========== v0.4.22: 样品信息登记 ==========
+export interface SampleInfoRecord {
+  id: number;
+  status: string;
+  seq_no: number;
+  batch_no: string;
+  user_name: string;
+  lab_name: string;
+  project_name: string;
+  submitted_at: string;
+  detection_date: string;
+  main_components: string;
+  detection_type: string;
+  notes: string;
+  created_at: string;
+  updated_at?: string;
+}

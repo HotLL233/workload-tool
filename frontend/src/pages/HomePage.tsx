@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Paper, useMediaQuery, useTheme } from '@mui/material';
 import ScienceIcon from '@mui/icons-material/Science';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 
 const R = '2px';
 const HomePage: React.FC = () => {
@@ -57,6 +58,25 @@ const HomePage: React.FC = () => {
           <BarChartIcon sx={{ fontSize: 56, color: '#283593', mb: 1.5 }} />
           <Typography variant="h5" fontWeight={700} color="#283593" gutterBottom>分析检测</Typography>
           <Typography variant="body2" color="text.secondary">检测录入 · 统计 · 管理</Typography>
+        </Paper>
+
+        {/* 样品信息登记 */}
+        <Paper
+          elevation={0}
+          onClick={() => n('/sample-info')}
+          sx={{
+            flex: isMobile ? '1 1 100%' : '1 1 240px', maxWidth: isMobile ? '100%' : 320, p: { xs: 3, md: 4 }, borderRadius: R, cursor: 'pointer',
+            background: 'linear-gradient(145deg,#e8f5e9,#c8e6c9)',
+            border: '2px solid #2e7d32',
+            boxShadow: '0 8px 32px rgba(46,125,50,0.12)',
+            transition: 'all 0.2s',
+            '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 40px rgba(46,125,50,0.2)' },
+            textAlign: 'center', width: isMobile ? '100%' : undefined,
+          }}
+        >
+          <AssignmentIcon sx={{ fontSize: 56, color: '#2e7d32', mb: 1.5 }} />
+          <Typography variant="h5" fontWeight={700} color="#2e7d32" gutterBottom>样品信息登记</Typography>
+          <Typography variant="body2" color="text.secondary">ICP · 热分析 · 质谱等样品信息填写</Typography>
         </Paper>
       </Box>
 

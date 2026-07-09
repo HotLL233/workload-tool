@@ -8,6 +8,7 @@ pub mod help;
 pub mod article;
 pub mod import_record;
 pub mod import;
+pub mod sample_info;
 
 use serde::{Deserialize, Serialize};
 
