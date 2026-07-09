@@ -8,6 +8,7 @@ import type {
   WorkRecord,
   SampleRecord,
   SampleInfoRecord,
+  SampleInfoType,
   SampleStats,
   AuditLog,
   StatsSummary,
@@ -370,13 +371,13 @@ export const updateHelpArticle = (id: number, data: { title?: string; is_visible
 
 // ========== v0.4.22: 样品信息登记 API ==========
 
-export const getSampleInfoRecords = (params?: { detection_type?: string; status?: string; page?: number; page_size?: number }): Promise<ApiResponse<PaginatedResponse<SampleInfoRecord>>> =>
+export const getSampleInfoRecords = (params?: { detection_type?: string; type_key?: string; status?: string; user_name?: string; lab_name?: string; project_name?: string; start?: string; end?: string; page?: number; page_size?: number }): Promise<ApiResponse<PaginatedResponse<SampleInfoRecord>>> =>
   client.get('/sample-info', { params }).then(r => r.data);
 
-export const createSampleInfo = (data: { batch_no: string; user_name: string; lab_name: string; project_name: string; submitted_at?: string; detection_date: string; main_components: string; detection_type: string; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
+export const createSampleInfo = (data: { batch_no: string; user_name: string; lab_name: string; project_name: string; submitted_at?: string; detection_date?: string; main_components: string; detection_type: string; type_key: string; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
   client.post('/sample-info', data).then(r => r.data);
 
-export const updateSampleInfo = (id: number, data: { status?: string; batch_no?: string; user_name?: string; lab_name?: string; project_name?: string; submitted_at?: string; detection_date?: string; main_components?: string; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
+export const updateSampleInfo = (id: number, data: { status?: string; batch_no?: string; user_name?: string; lab_name?: string; project_name?: string; submitted_at?: string; detection_date?: string; main_components?: string; type_key?: string; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
   client.put(`/sample-info/${id}`, data).then(r => r.data);
 
 export const deleteSampleInfo = (id: number): Promise<ApiResponse<null>> =>
@@ -384,5 +385,42 @@ export const deleteSampleInfo = (id: number): Promise<ApiResponse<null>> =>
 
 export const updateSampleInfoStatus = (id: number, status: string): Promise<ApiResponse<SampleInfoRecord>> =>
   client.put(`/sample-info/${id}/status`, { status }).then(r => r.data);
+
+// 独立统计（不接分析检测 /stats）
+export const getSampleInfoStats = (params?: { start?: string; end?: string; type_key?: string; status?: string }): Promise<ApiResponse<any>> =>
+  client.get('/sample-info/stats', { params }).then(r => r.data);
+
+// ========== v0.4.23: 检测类型 CRUD ==========
+export const getSampleInfoTypes = (): Promise<ApiResponse<SampleInfoType[]>> =>
+  client.get('/sample-info-types').then(r => r.data);
+
+export const getSampleInfoTypesAll = (): Promise<ApiResponse<SampleInfoType[]>> =>
+  client.get('/sample-info-types/all').then(r => r.data);
+
+export const createSampleInfoType = (data: { type_key: string; label: string; description?: string; color?: string; sort_order?: number }): Promise<ApiResponse<SampleInfoType>> =>
+  client.post('/sample-info-types', data).then(r => r.data);
+
+export const updateSampleInfoType = (id: number, data: { type_key?: string; label?: string; description?: string; color?: string; sort_order?: number; is_active?: number }): Promise<ApiResponse<SampleInfoType>> =>
+  client.put(`/sample-info-types/${id}`, data).then(r => r.data);
+
+export const deleteSampleInfoType = (id: number): Promise<ApiResponse<null>> =>
+  client.delete(`/sample-info-types/${id}`).then(r => r.data);
+
+// ========== v0.4.23: 样品信息登记导出（独立接口） ==========
+export const exportSampleInfo = (params: { start?: string; end?: string }): Promise<Blob> =>
+  client.get('/sample-info/export', { params, responseType: 'blob' })
+    .then(async (r) => {
+      if (r.status !== 200) {
+        const text = await r.data.text();
+        try {
+          const json = JSON.parse(text);
+          throw new Error(json.message || '导出失败');
+        } catch (e) {
+          if (e instanceof Error) throw e;
+          throw new Error(text || '导出失败');
+        }
+      }
+      return r.data;
+    });
 
 export default client;

@@ -19,12 +19,12 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import BackupIcon from '@mui/icons-material/Backup';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
-import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle } from '../api/client';
-import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle } from '../types';
+import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo } from '../api/client';
+import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
 import InlineEditCard from '../components/InlineEditCard';
 
-type TV = 'projects' | 'groups' | 'methods' | 'trash' | 'audit' | 'backup' | 'help';
+type TV = 'projects' | 'groups' | 'methods' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo';
 
 const R = '2px';
 const cSx = { borderRadius: R, fontWeight: 700, border: '1px solid rgba(0,0,0,0.08)' };
@@ -54,6 +54,7 @@ const TC = [
   { key: 'audit', label: '审计日志', icon: <ReceiptLongIcon />, desc: '操作记录追溯' },
   { key: 'backup', label: '数据备份', icon: <BackupIcon />, desc: '备份恢复与自动备份设置' },
   { key: 'help', label: '教程与帮助', icon: <MenuBookIcon />, desc: '上传编辑帮助文档，管理显隐' },
+  { key: 'sampleinfo', label: '样品信息登记管理', icon: <ScienceIcon />, desc: '检测类型 · 记录查询 · 独立统计' },
 ] as { key: TV; label: string; icon: React.ReactNode; desc: string }[];
 
 const ManagePage: React.FC = () => {
@@ -145,9 +146,134 @@ const ManagePage: React.FC = () => {
   const [helpArticles, setHelpArticles] = useState<HelpArticle[]>([]);
   const loadHelpArticles = async () => { try { const r = await getHelpArticles(false); if (r.code === 0 && r.data) setHelpArticles(r.data); } catch {} };
 
+  // ========== v0.4.23: 样品信息登记管理 ==========
+  // ① 检测类型
+  const [siTypes, setSiTypes] = useState<SampleInfoType[]>([]);
+  const loadSiTypes = useCallback(async () => { try { const r = await getSampleInfoTypesAll(); if (r.code === 0 && r.data) setSiTypes(r.data); } catch {} }, []);
+  const [siTypeEdit, setSiTypeEdit] = useState<SampleInfoType | null>(null);
+  const [siTypeForm, setSiTypeForm] = useState({ type_key: '', label: '', description: '', color: '#2e7d32', sort_order: 0, is_active: 1 });
+
+  // ② 记录查询
+  const [siRecords, setSiRecords] = useState<SampleInfoRecord[]>([]);
+  const [siTotal, setSiTotal] = useState(0);
+  const [siPage, setSiPage] = useState(0);
+  const [siFilters, setSiFilters] = useState({ start: '', end: '', user_name: '', lab_name: '', project_name: '', type_key: '', status: '' });
+  const loadSiRecords = useCallback(async () => {
+    try {
+      const r = await getSampleInfoRecords({
+        start: siFilters.start || undefined,
+        end: siFilters.end || undefined,
+        user_name: siFilters.user_name || undefined,
+        lab_name: siFilters.lab_name || undefined,
+        project_name: siFilters.project_name || undefined,
+        type_key: siFilters.type_key || undefined,
+        status: siFilters.status || undefined,
+        page: siPage + 1,
+        page_size: 50,
+      });
+      if (r.code === 0 && r.data) { setSiRecords(r.data.items); setSiTotal(r.data.total); }
+    } catch {}
+  }, [siFilters, siPage]);
+
+  // ③ 独立统计
+  const [siStats, setSiStats] = useState<any>(null);
+  const loadSiStats = useCallback(async () => {
+    try {
+      const r = await getSampleInfoStats({
+        start: siFilters.start || undefined,
+        end: siFilters.end || undefined,
+        type_key: siFilters.type_key || undefined,
+        status: siFilters.status || undefined,
+      });
+      if (r.code === 0 && r.data) setSiStats(r.data);
+      else setSiStats(null);
+    } catch { setSiStats(null); }
+  }, [siFilters]);
+
+  // 记录行内编辑
+  const [siEditId, setSiEditId] = useState<number | null>(null);
+  const [siEditForm, setSiEditForm] = useState<Record<string, string>>({});
+  const openSiEdit = (rec: SampleInfoRecord) => {
+    setSiEditId(rec.id);
+    setSiEditForm({
+      batch_no: rec.batch_no, user_name: rec.user_name, lab_name: rec.lab_name,
+      project_name: rec.project_name, status: rec.status, main_components: rec.main_components, notes: rec.notes,
+    });
+  };
+  const saveSiEdit = async (id: number) => {
+    try {
+      const r = await updateSampleInfo(id, { ...siEditForm });
+      if (r.code === 0) { sm('保存成功'); setSiEditId(null); setSiEditForm({}); loadSiRecords(); }
+      else sm(r.message, true);
+    } catch (e: any) { sm(e.message || '保存失败', true); }
+  };
+  const delSiRecord = (id: number) => {
+    setCa(() => async () => {
+      const r = await deleteSampleInfo(id);
+      if (r.code === 0) { sm('删除成功'); loadSiRecords(); loadSiStats(); }
+      else sm(r.message, true);
+      setCo(false);
+    });
+    setCo(true);
+  };
+
+  // 导出（独立接口）
+  const doExportSi = async () => {
+    try {
+      const blob = await exportSampleInfo({ start: siFilters.start || undefined, end: siFilters.end || undefined });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const fname = `样品信息登记_${siFilters.start || 'all'}_${siFilters.end || 'all'}.xlsx`;
+      a.href = url; a.download = fname; a.click();
+      window.URL.revokeObjectURL(url);
+      sm('导出成功');
+    } catch (e: any) { sm(e.message || '导出失败', true); }
+  };
+
+  // 类型 CRUD 保存
+  const saveSiType = async () => {
+    if (!siTypeForm.type_key.trim() || !siTypeForm.label.trim()) { sm('类型标识与名称不能为空', true); return; }
+    try {
+      if (siTypeEdit) {
+        const r = await updateSampleInfoType(siTypeEdit.id, {
+          type_key: siTypeForm.type_key, label: siTypeForm.label, description: siTypeForm.description,
+          color: siTypeForm.color, sort_order: siTypeForm.sort_order, is_active: siTypeForm.is_active,
+        });
+        if (r.code === 0) { sm('更新成功'); setSiTypeEdit(null); setSiTypeForm({ type_key: '', label: '', description: '', color: '#2e7d32', sort_order: 0, is_active: 1 }); loadSiTypes(); }
+        else sm(r.message, true);
+      } else {
+        const r = await createSampleInfoType({
+          type_key: siTypeForm.type_key, label: siTypeForm.label, description: siTypeForm.description,
+          color: siTypeForm.color, sort_order: siTypeForm.sort_order,
+        });
+        if (r.code === 0) { sm('创建成功'); setSiTypeForm({ type_key: '', label: '', description: '', color: '#2e7d32', sort_order: 0, is_active: 1 }); loadSiTypes(); }
+        else sm(r.message, true);
+      }
+    } catch (e: any) { sm(e.message || '操作失败', true); }
+  };
+  const editSiType = (t: SampleInfoType) => {
+    setSiTypeEdit(t);
+    setSiTypeForm({ type_key: t.type_key, label: t.label, description: t.description, color: t.color, sort_order: t.sort_order, is_active: t.is_active });
+  };
+  const delSiType = (id: number) => {
+    setCa(() => async () => {
+      const r = await deleteSampleInfoType(id);
+      if (r.code === 0) { sm('删除成功'); loadSiTypes(); }
+      else sm(r.message, true);
+      setCo(false);
+    });
+    setCo(true);
+  };
+
+
   // v0.3.15: 初始加载时也加载方法类型，否则项目编辑对话框的"关联检测方法"按类型分组时 mts 为空
   useEffect(() => { setLd(true); Promise.all([lg(), lp(), lt(), lm(), lmt()]).finally(() => setLd(false)); }, [lg, lp, lt, lm, lmt]);
   useEffect(() => { if (tb === 'audit') la(1); if (tb === 'backup') loadBk(); if (tb === 'methods') { lmt(); lm(); } if (tb === 'trash') loadTrash(); if (tb === 'help') { loadHelpDocs(); loadHelpArticles(); } }, [tb, la, lmt, lm]);
+
+  // v0.4.23: 样品信息登记管理数据加载
+  useEffect(() => {
+    if (tb === 'sampleinfo') { loadSiTypes(); loadSiRecords(); loadSiStats(); }
+  }, [tb, loadSiTypes, loadSiRecords, loadSiStats]);
 
   // v0.3.18: 项目保存
   const handleSaveProject = async (project: Project) => {
@@ -812,6 +938,224 @@ const ManagePage: React.FC = () => {
           </Table>
         </TableContainer>
       )}
+    </Box>}
+
+    {/* ── 样品信息登记管理 ── */}
+    {tb === 'sampleinfo' && <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="subtitle1" fontWeight={700} color="#2e7d32">样品信息登记管理</Typography>
+        <Button variant="contained" size="small" startIcon={<CloudUploadIcon />} onClick={doExportSi}
+          sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}>导出 Excel</Button>
+      </Box>
+
+      {/* ① 检测类型 CRUD */}
+      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+          <Typography variant="subtitle2" fontWeight={700}>① 检测类型</Typography>
+          <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => { setSiTypeEdit(null); setSiTypeForm({ type_key: '', label: '', description: '', color: '#2e7d32', sort_order: (siTypes.length + 1), is_active: 1 }); }}
+            sx={{ borderRadius: R, borderColor: '#2e7d32', color: '#2e7d32' }}>新建类型</Button>
+        </Box>
+
+        {/* 新建/编辑表单 */}
+        {siTypeEdit !== null || siTypeForm.type_key !== '' || siTypeForm.label !== '' ? (
+          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', mb: 2, p: 1.5, bgcolor: '#f5f9f5', borderRadius: R }}>
+            <TextField label="类型标识(type_key)" size="small" value={siTypeForm.type_key} onChange={e => setSiTypeForm(p => ({ ...p, type_key: e.target.value }))} sx={{ width: 160 }} />
+            <TextField label="名称(label)" size="small" value={siTypeForm.label} onChange={e => setSiTypeForm(p => ({ ...p, label: e.target.value }))} sx={{ width: 140 }} />
+            <TextField label="描述" size="small" value={siTypeForm.description} onChange={e => setSiTypeForm(p => ({ ...p, description: e.target.value }))} sx={{ width: 180 }} />
+            <TextField label="排序" size="small" type="number" value={siTypeForm.sort_order} onChange={e => setSiTypeForm(p => ({ ...p, sort_order: Number(e.target.value) }))} sx={{ width: 80 }} />
+            <TextField label="颜色色值" size="small" value={siTypeForm.color} onChange={e => setSiTypeForm(p => ({ ...p, color: e.target.value }))} sx={{ width: 120 }} InputProps={{ startAdornment: <Box sx={{ width: 16, height: 16, mr: 1, borderRadius: '4px', bgcolor: siTypeForm.color, border: '1px solid #ccc' }} /> }} />
+            <FormControlLabel control={<Switch checked={siTypeForm.is_active === 1} onChange={e => setSiTypeForm(p => ({ ...p, is_active: e.target.checked ? 1 : 0 }))} />} label="启用" />
+            <Button variant="contained" size="small" onClick={saveSiType} sx={{ borderRadius: R, bgcolor: '#2e7d32' }}>保存</Button>
+            <Button size="small" onClick={() => { setSiTypeEdit(null); setSiTypeForm({ type_key: '', label: '', description: '', color: '#2e7d32', sort_order: 0, is_active: 1 }); }} sx={{ borderRadius: R }}>取消</Button>
+          </Box>
+        ) : null}
+
+        <TableContainer component={Paper} sx={tSx}>
+          <Table size="small">
+            <TableHead><TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>名称</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>标识</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>描述</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>颜色</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>排序</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>启用</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600 }}>操作</TableCell>
+            </TableRow></TableHead>
+            <TableBody>
+              {siTypes.length === 0 ? (
+                <TableRow><TableCell colSpan={7} align="center" sx={{ color: '#999', py: 3 }}>暂无检测类型</TableCell></TableRow>
+              ) : siTypes.map(t => (
+                <TableRow key={t.id} hover>
+                  <TableCell>{t.label}</TableCell>
+                  <TableCell>{t.type_key}</TableCell>
+                  <TableCell sx={{ maxWidth: 220 }}>{t.description}</TableCell>
+                  <TableCell><Box sx={{ width: 18, height: 18, borderRadius: '4px', bgcolor: t.color, border: '1px solid #ccc' }} /></TableCell>
+                  <TableCell>{t.sort_order}</TableCell>
+                  <TableCell><Chip label={t.is_active ? '启用' : '停用'} size="small" color={t.is_active ? 'success' : 'default'} variant={t.is_active ? 'filled' : 'outlined'} /></TableCell>
+                  <TableCell align="right">
+                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                      <IconButton size="small" onClick={() => editSiType(t)} sx={{ color: '#2e7d32' }}><EditIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" color="error" onClick={() => delSiType(t.id)}><DeleteIcon fontSize="small" /></IconButton>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      {/* ② 记录查询（全部维度筛选） */}
+      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
+        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>② 记录查询（共 {siTotal} 条）</Typography>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2, alignItems: 'center' }}>
+          <TextField label="起始日期" type="date" size="small" value={siFilters.start} onChange={e => setSiFilters(p => ({ ...p, start: e.target.value }))} InputLabelProps={{ shrink: true }} />
+          <TextField label="截止日期" type="date" size="small" value={siFilters.end} onChange={e => setSiFilters(p => ({ ...p, end: e.target.value }))} InputLabelProps={{ shrink: true }} />
+          <TextField label="送样人" size="small" value={siFilters.user_name} onChange={e => setSiFilters(p => ({ ...p, user_name: e.target.value }))} />
+          <TextField label="实验室" size="small" value={siFilters.lab_name} onChange={e => setSiFilters(p => ({ ...p, lab_name: e.target.value }))} />
+          <TextField label="项目" size="small" value={siFilters.project_name} onChange={e => setSiFilters(p => ({ ...p, project_name: e.target.value }))} />
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>检测类型</InputLabel>
+            <Select value={siFilters.type_key} label="检测类型" onChange={e => setSiFilters(p => ({ ...p, type_key: e.target.value }))}>
+              <MenuItem value="">全部</MenuItem>
+              {siTypes.map(t => <MenuItem key={t.id} value={t.type_key}>{t.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 110 }}>
+            <InputLabel>状态</InputLabel>
+            <Select value={siFilters.status} label="状态" onChange={e => setSiFilters(p => ({ ...p, status: e.target.value }))}>
+              {['', '待检测', '待取样', '已取样', '检测完成'].map(s => <MenuItem key={s} value={s}>{s === '' ? '全部' : s}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <Button variant="contained" size="small" onClick={() => { setSiPage(0); }} sx={{ borderRadius: R, bgcolor: '#2e7d32' }}>查询</Button>
+          <Button size="small" onClick={() => { setSiFilters({ start: '', end: '', user_name: '', lab_name: '', project_name: '', type_key: '', status: '' }); setSiPage(0); }} sx={{ borderRadius: R }}>重置</Button>
+        </Box>
+
+        <TableContainer component={Paper} sx={tSx}>
+          <Table size="small">
+            <TableHead><TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>序号</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>批号</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>送样人</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>实验室</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>项目</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>检测类型</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>状态</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>检测时间</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>主要成分</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600 }}>操作</TableCell>
+            </TableRow></TableHead>
+            <TableBody>
+              {siRecords.length === 0 ? (
+                <TableRow><TableCell colSpan={10} align="center" sx={{ color: '#999', py: 3 }}>暂无记录</TableCell></TableRow>
+              ) : siRecords.map(r => (
+                <TableRow key={r.id} hover>
+                  {siEditId === r.id ? (
+                    <>
+                      <TableCell>#{r.seq_no}</TableCell>
+                      <TableCell><TextField size="small" value={siEditForm.batch_no || ''} onChange={e => setSiEditForm(p => ({ ...p, batch_no: e.target.value }))} /></TableCell>
+                      <TableCell><TextField size="small" value={siEditForm.user_name || ''} onChange={e => setSiEditForm(p => ({ ...p, user_name: e.target.value }))} /></TableCell>
+                      <TableCell><TextField size="small" value={siEditForm.lab_name || ''} onChange={e => setSiEditForm(p => ({ ...p, lab_name: e.target.value }))} /></TableCell>
+                      <TableCell><TextField size="small" value={siEditForm.project_name || ''} onChange={e => setSiEditForm(p => ({ ...p, project_name: e.target.value }))} /></TableCell>
+                      <TableCell>{r.detection_type}</TableCell>
+                      <TableCell>
+                        <FormControl size="small">
+                          <Select value={siEditForm.status || ''} onChange={e => setSiEditForm(p => ({ ...p, status: e.target.value }))}>
+                            {['待检测', '待取样', '已取样', '检测完成'].map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                          </Select>
+                        </FormControl>
+                      </TableCell>
+                      <TableCell>{r.detection_date || '-'}</TableCell>
+                      <TableCell><TextField size="small" value={siEditForm.main_components || ''} onChange={e => setSiEditForm(p => ({ ...p, main_components: e.target.value }))} /></TableCell>
+                      <TableCell align="right">
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                          <Button size="small" variant="contained" onClick={() => saveSiEdit(r.id)} sx={{ borderRadius: R, fontSize: '0.7rem', py: 0 }}>保存</Button>
+                          <Button size="small" onClick={() => { setSiEditId(null); setSiEditForm({}); }} sx={{ borderRadius: R, fontSize: '0.7rem', py: 0 }}>取消</Button>
+                        </Box>
+                      </TableCell>
+                    </>
+                  ) : (
+                    <>
+                      <TableCell>#{r.seq_no}</TableCell>
+                      <TableCell>{r.batch_no}</TableCell>
+                      <TableCell>{r.user_name}</TableCell>
+                      <TableCell>{r.lab_name}</TableCell>
+                      <TableCell>{r.project_name}</TableCell>
+                      <TableCell>{r.detection_type}</TableCell>
+                      <TableCell><Chip label={r.status} size="small" color={r.status === '检测完成' ? 'default' : 'warning'} /></TableCell>
+                      <TableCell>{r.detection_date || '-'}</TableCell>
+                      <TableCell sx={{ maxWidth: 200 }}>{r.main_components}</TableCell>
+                      <TableCell align="right">
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                          <IconButton size="small" onClick={() => openSiEdit(r)} sx={{ color: '#2e7d32' }}><EditIcon fontSize="small" /></IconButton>
+                          <IconButton size="small" color="error" onClick={() => delSiRecord(r.id)}><DeleteIcon fontSize="small" /></IconButton>
+                        </Box>
+                      </TableCell>
+                    </>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        {siTotal > 50 && (
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 1 }}>
+            <Button size="small" disabled={siPage === 0} onClick={() => setSiPage(p => Math.max(0, p - 1))} sx={{ borderRadius: R }}>上一页</Button>
+            <Button size="small" disabled={(siPage + 1) * 50 >= siTotal} onClick={() => setSiPage(p => p + 1)} sx={{ borderRadius: R }}>下一页</Button>
+          </Box>
+        )}
+      </Paper>
+
+      {/* ③ 独立统计 */}
+      <Paper elevation={0} sx={{ p: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
+        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>③ 独立统计（不接分析检测 /stats）</Typography>
+        {!siStats ? (
+          <Typography color="text.secondary">加载中…</Typography>
+        ) : (
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">总记录数</Typography>
+              <Typography variant="h4" fontWeight={800} color="#2e7d32">{siStats.total}</Typography>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">按状态</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                {siStats.by_status.map((s: any) => <Chip key={s.name} label={`${s.name}: ${s.count}`} size="small" variant="outlined" sx={{ borderRadius: R }} />)}
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">按检测类型</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                {siStats.by_type.map((s: any) => <Chip key={s.type_key} label={`${s.label}: ${s.count}`} size="small" variant="outlined" sx={{ borderRadius: R }} />)}
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">按实验室</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                {siStats.by_lab.map((s: any) => <Chip key={s.name} label={`${s.name}: ${s.count}`} size="small" variant="outlined" sx={{ borderRadius: R }} />)}
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">按项目</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                {siStats.by_project.map((s: any) => <Chip key={s.name} label={`${s.name}: ${s.count}`} size="small" variant="outlined" sx={{ borderRadius: R }} />)}
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">按送样人</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                {siStats.by_user.map((s: any) => <Chip key={s.name} label={`${s.name}: ${s.count}`} size="small" variant="outlined" sx={{ borderRadius: R }} />)}
+              </Box>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="caption" fontWeight={700} color="text.secondary">按月份</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                {siStats.by_month.map((s: any) => <Chip key={s.month} label={`${s.month}: ${s.count}`} size="small" variant="outlined" sx={{ borderRadius: R }} />)}
+              </Box>
+            </Grid>
+          </Grid>
+        )}
+      </Paper>
     </Box>}
 
     {/* ── 对话框（保留：方法类型管理、确认对话框、导入映射、v0.3.18 编辑弹窗、方法一览） ── */}

@@ -9,9 +9,9 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import {
-  getSampleInfoRecords, createSampleInfo, updateSampleInfo, updateSampleInfoStatus,
+  getSampleInfoRecords, createSampleInfo, updateSampleInfo, updateSampleInfoStatus, getSampleInfoTypes,
 } from '../api/client';
-import type { SampleInfoRecord } from '../types';
+import type { SampleInfoRecord, SampleInfoType } from '../types';
 
 const R = '2px';
 const PAGE_SIZE = 20;
@@ -27,7 +27,7 @@ const NEXT_STATUS_LABEL: Record<string, string | null> = {
   '待检测': '取样', '待取样': '已取样', '已取样': '检测完成', '检测完成': null,
 };
 
-const DEFAULT_FORM = { batch_no: '', user_name: '', lab_name: '', project_name: '', detection_date: '', main_components: '', notes: '' };
+const DEFAULT_FORM = { batch_no: '', user_name: '', lab_name: '', project_name: '', main_components: '', notes: '' };
 
 const SampleInfoEntry: React.FC = () => {
   const [sp] = useSearchParams();
@@ -51,11 +51,17 @@ const SampleInfoEntry: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
 
+  // 检测类型（用于提交时附带 label）
+  const [types, setTypes] = useState<SampleInfoType[]>([]);
+  useEffect(() => {
+    getSampleInfoTypes().then(r => { if (r.code === 0 && r.data) setTypes(r.data); }).catch(() => {});
+  }, []);
+
   const load = useCallback(async () => {
     setLd(true);
     try {
       const r = await getSampleInfoRecords({
-        detection_type: dt || undefined,
+        type_key: dt || undefined,
         status: statusFilter === '全部' ? undefined : statusFilter,
         page: page + 1,
         page_size: PAGE_SIZE,
@@ -73,15 +79,17 @@ const SampleInfoEntry: React.FC = () => {
   const setF = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const doSubmit = async () => {
-    if (!form.batch_no || !form.user_name || !form.lab_name || !form.project_name || !form.detection_date || !form.main_components) {
+    if (!form.batch_no || !form.user_name || !form.lab_name || !form.project_name || !form.main_components) {
       setSnack({ open: true, msg: '请填写所有必填字段', sev: 'error' }); return;
     }
+    // 检测时间由后端在「检测完成」时自动生成，前端不传
+    const typeLabel = types.find(t => t.type_key === dt)?.label || dt;
     try {
       await createSampleInfo({
         batch_no: form.batch_no, user_name: form.user_name, lab_name: form.lab_name,
-        project_name: form.project_name, submitted_at: submittedAt, detection_date: form.detection_date,
-        main_components: form.main_components, detection_type: dt,
-        notes: form.notes || undefined,
+        project_name: form.project_name, submitted_at: submittedAt,
+        main_components: form.main_components, detection_type: typeLabel,
+        type_key: dt, notes: form.notes || undefined,
       });
       setSnack({ open: true, msg: '登记成功', sev: 'success' });
       setForm(DEFAULT_FORM);
@@ -96,7 +104,7 @@ const SampleInfoEntry: React.FC = () => {
 
   const doEdit = (rec: SampleInfoRecord) => {
     setEditingId(rec.id);
-    setEditForm({ batch_no: rec.batch_no, user_name: rec.user_name, lab_name: rec.lab_name, project_name: rec.project_name, submitted_at: rec.submitted_at, detection_date: rec.detection_date, main_components: rec.main_components, notes: rec.notes });
+    setEditForm({ batch_no: rec.batch_no, user_name: rec.user_name, lab_name: rec.lab_name, project_name: rec.project_name, submitted_at: rec.submitted_at, main_components: rec.main_components, notes: rec.notes });
   };
 
   const doCancelEdit = () => { setEditingId(null); setEditForm({}); };
@@ -106,8 +114,7 @@ const SampleInfoEntry: React.FC = () => {
       await updateSampleInfo(id, {
         batch_no: editForm.batch_no, user_name: editForm.user_name, lab_name: editForm.lab_name,
         project_name: editForm.project_name, submitted_at: editForm.submitted_at,
-        detection_date: editForm.detection_date, main_components: editForm.main_components,
-        notes: editForm.notes,
+        main_components: editForm.main_components, notes: editForm.notes,
       });
       setSnack({ open: true, msg: '保存成功', sev: 'success' });
       setEditingId(null); setEditForm({}); load();
@@ -162,9 +169,6 @@ const SampleInfoEntry: React.FC = () => {
           </Grid>
           <Grid item xs={12} sm={6}>
             <TextField label="送样时间" type="datetime-local" required fullWidth size="small" value={submittedAt} onChange={e => setSubmittedAt(e.target.value)} InputLabelProps={{ shrink: true }} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField label="检测时间" type="date" required fullWidth size="small" value={form.detection_date} onChange={e => setF('detection_date', e.target.value)} InputLabelProps={{ shrink: true }} />
           </Grid>
           <Grid item xs={12} sm={6}>
             <TextField label="序号" fullWidth size="small" value="自动生成" disabled InputProps={{ sx: { color: '#999' } }} />
@@ -261,9 +265,6 @@ const SampleInfoEntry: React.FC = () => {
                           </Grid>
                           <Grid item xs={12} sm={6}>
                             <TextField label="送样时间" type="datetime-local" fullWidth size="small" value={editForm.submitted_at || ''} onChange={e => setEditForm(p => ({ ...p, submitted_at: e.target.value }))} InputLabelProps={{ shrink: true }} />
-                          </Grid>
-                          <Grid item xs={12} sm={6}>
-                            <TextField label="检测时间" type="date" fullWidth size="small" value={editForm.detection_date || ''} onChange={e => setEditForm(p => ({ ...p, detection_date: e.target.value }))} InputLabelProps={{ shrink: true }} />
                           </Grid>
                           <Grid item xs={12}>
                             <TextField label="样品主要成分" fullWidth size="small" value={editForm.main_components || ''} onChange={e => setEditForm(p => ({ ...p, main_components: e.target.value }))} />

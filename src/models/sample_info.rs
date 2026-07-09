@@ -14,6 +14,7 @@ pub struct SampleInfoRecord {
     pub detection_date: String,
     pub main_components: String,
     pub detection_type: String,
+    pub type_key: String,
     pub notes: String,
     pub created_at: String,
     pub updated_at: Option<String>,
@@ -28,9 +29,10 @@ pub struct SampleInfoCreate {
     pub lab_name: String,
     pub project_name: String,
     pub submitted_at: Option<String>,
-    pub detection_date: String,
+    pub detection_date: Option<String>,
     pub main_components: String,
     pub detection_type: String,
+    pub type_key: String,
     pub notes: Option<String>,
 }
 
@@ -48,6 +50,7 @@ pub struct SampleInfoResponse {
     pub detection_date: String,
     pub main_components: String,
     pub detection_type: String,
+    pub type_key: String,
     pub notes: String,
     pub created_at: String,
     pub updated_at: Option<String>,
@@ -67,6 +70,7 @@ impl From<SampleInfoRecord> for SampleInfoResponse {
             detection_date: r.detection_date,
             main_components: r.main_components,
             detection_type: r.detection_type,
+            type_key: r.type_key,
             notes: r.notes,
             created_at: r.created_at,
             updated_at: r.updated_at,
@@ -92,7 +96,13 @@ pub struct SampleInfoUpdate {
 #[derive(Debug, Deserialize)]
 pub struct SampleInfoQuery {
     pub detection_type: Option<String>,
+    pub type_key: Option<String>,
     pub status: Option<String>,
+    pub user_name: Option<String>,
+    pub lab_name: Option<String>,
+    pub project_name: Option<String>,
+    pub start: Option<String>,
+    pub end: Option<String>,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
 }

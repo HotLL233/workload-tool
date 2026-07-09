@@ -1,46 +1,85 @@
 use crate::db::DbPool;
 use crate::error::{AppError, Result};
 use crate::models::sample_info::{
-    SampleInfoCreate, SampleInfoRecord, SampleInfoResponse, SampleInfoUpdate,
+    SampleInfoCreate, SampleInfoQuery, SampleInfoRecord, SampleInfoResponse, SampleInfoUpdate,
 };
 use crate::repo::audit_repo;
 
 const STATUS_ORDER: &[&str] = &["待检测", "待取样", "已取样", "检测完成"];
 
-/// 分页查询，支持按检测类型和状态过滤，未软删除
-pub fn list(
-    pool: &DbPool,
-    detection_type: Option<&str>,
-    status: Option<&str>,
-    page: i64,
-    page_size: i64,
-) -> Result<(Vec<SampleInfoResponse>, i64)> {
+/// 构建通用 WHERE 子句（不含分页），所有筛选维度：
+/// 时间(submitted_at) / 送样人 / 实验室 / 项目 / 类型(type_key) / 状态
+fn build_where(q: &SampleInfoQuery) -> (String, Vec<String>) {
+    let mut clauses: Vec<String> = vec!["deleted_at IS NULL".to_string()];
+    let mut params: Vec<String> = vec![];
+    if let Some(dt) = &q.detection_type {
+        if !dt.is_empty() {
+            let i = params.len() + 1;
+            clauses.push(format!("detection_type=?{}", i));
+            params.push(dt.clone());
+        }
+    }
+    if let Some(tk) = &q.type_key {
+        if !tk.is_empty() {
+            let i = params.len() + 1;
+            clauses.push(format!("type_key=?{}", i));
+            params.push(tk.clone());
+        }
+    }
+    if let Some(s) = &q.status {
+        if !s.is_empty() && s != "全部" {
+            let i = params.len() + 1;
+            clauses.push(format!("status=?{}", i));
+            params.push(s.clone());
+        }
+    }
+    if let Some(u) = &q.user_name {
+        if !u.is_empty() {
+            let i = params.len() + 1;
+            clauses.push(format!("user_name=?{}", i));
+            params.push(u.clone());
+        }
+    }
+    if let Some(l) = &q.lab_name {
+        if !l.is_empty() {
+            let i = params.len() + 1;
+            clauses.push(format!("lab_name=?{}", i));
+            params.push(l.clone());
+        }
+    }
+    if let Some(p) = &q.project_name {
+        if !p.is_empty() {
+            let i = params.len() + 1;
+            clauses.push(format!("project_name=?{}", i));
+            params.push(p.clone());
+        }
+    }
+    if let Some(s) = &q.start {
+        let i = params.len() + 1;
+        clauses.push(format!("submitted_at>=?{}", i));
+        params.push(s.clone());
+    }
+    if let Some(e) = &q.end {
+        let i = params.len() + 1;
+        clauses.push(format!("submitted_at<=?{}", i));
+        params.push(format!("{}T23:59:59", e));
+    }
+    (clauses.join(" AND "), params)
+}
+
+/// 分页查询，支持全部维度筛选，未软删除
+pub fn list(pool: &DbPool, q: &SampleInfoQuery) -> Result<(Vec<SampleInfoResponse>, i64)> {
     let conn = pool.get()?;
-    let mut where_clauses: Vec<String> = vec!["deleted_at IS NULL".into()];
-    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = vec![];
+    let page = q.page.unwrap_or(1).max(1);
+    let page_size = q.page_size.unwrap_or(20).min(500);
 
-    if let Some(dt) = detection_type {
-        let idx = params.len() + 1;
-        where_clauses.push(format!("detection_type=?{}", idx));
-        params.push(Box::new(dt.to_string()));
-    }
-    if let Some(s) = status {
-        let idx = params.len() + 1;
-        where_clauses.push(format!("status=?{}", idx));
-        params.push(Box::new(s.to_string()));
-    }
-
-    let where_sql = if where_clauses.is_empty() {
-        String::new()
-    } else {
-        format!("WHERE {}", where_clauses.join(" AND "))
-    };
+    let (where_sql, params) = build_where(q);
 
     let sql = format!(
         "SELECT id, status, seq_no, batch_no, user_name, lab_name, project_name, \
-         submitted_at, detection_date, main_components, detection_type, notes, \
+         submitted_at, detection_date, main_components, detection_type, type_key, notes, \
          created_at, updated_at, deleted_at \
-         FROM sample_info_records {} ORDER BY created_at DESC \
+         FROM sample_info_records WHERE {} ORDER BY created_at DESC \
          LIMIT {} OFFSET {}",
         where_sql,
         page_size,
@@ -49,7 +88,7 @@ pub fn list(
 
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(
-        rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+        rusqlite::params_from_iter(params.iter().map(|p| p as &dyn rusqlite::types::ToSql)),
         |row| {
             Ok(SampleInfoRecord {
                 id: row.get(0)?,
@@ -63,10 +102,11 @@ pub fn list(
                 detection_date: row.get(8)?,
                 main_components: row.get(9)?,
                 detection_type: row.get(10)?,
-                notes: row.get::<_, String>(11).unwrap_or_default(),
-                created_at: row.get(12)?,
-                updated_at: row.get(13)?,
-                deleted_at: row.get(14)?,
+                type_key: row.get(11)?,
+                notes: row.get::<_, String>(12).unwrap_or_default(),
+                created_at: row.get(13)?,
+                updated_at: row.get(14)?,
+                deleted_at: row.get(15)?,
             })
         },
     )?;
@@ -77,13 +117,10 @@ pub fn list(
         .collect();
 
     // Count
-    let count_sql = format!(
-        "SELECT COUNT(*) FROM sample_info_records {}",
-        where_sql
-    );
+    let count_sql = format!("SELECT COUNT(*) FROM sample_info_records WHERE {}", where_sql);
     let count: i64 = conn.query_row(
         &count_sql,
-        rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())),
+        rusqlite::params_from_iter(params.iter().map(|p| p as &dyn rusqlite::types::ToSql)),
         |r| r.get(0),
     )?;
 
@@ -94,7 +131,7 @@ pub fn list(
 fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<SampleInfoRecord> {
     conn.query_row(
         "SELECT id, status, seq_no, batch_no, user_name, lab_name, project_name, \
-         submitted_at, detection_date, main_components, detection_type, notes, \
+         submitted_at, detection_date, main_components, detection_type, type_key, notes, \
          created_at, updated_at, deleted_at \
          FROM sample_info_records WHERE id=?1",
         [id],
@@ -111,10 +148,11 @@ fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<SampleInfoR
                 detection_date: row.get(8)?,
                 main_components: row.get(9)?,
                 detection_type: row.get(10)?,
-                notes: row.get::<_, String>(11).unwrap_or_default(),
-                created_at: row.get(12)?,
-                updated_at: row.get(13)?,
-                deleted_at: row.get(14)?,
+                type_key: row.get(11)?,
+                notes: row.get::<_, String>(12).unwrap_or_default(),
+                created_at: row.get(13)?,
+                updated_at: row.get(14)?,
+                deleted_at: row.get(15)?,
             })
         },
     )
@@ -148,12 +186,13 @@ pub fn create(pool: &DbPool, data: &SampleInfoCreate) -> Result<SampleInfoRespon
         .unwrap_or(1);
 
     let notes = data.notes.clone().unwrap_or_default();
+    let detection_date = data.detection_date.clone().unwrap_or_default();
 
     tx.execute(
         "INSERT INTO sample_info_records \
          (status, seq_no, batch_no, user_name, lab_name, project_name, submitted_at, \
-          detection_date, main_components, detection_type, notes) \
-         VALUES ('待检测', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+          detection_date, main_components, detection_type, type_key, notes) \
+         VALUES ('待检测', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         rusqlite::params![
             seq_no,
             &data.batch_no,
@@ -161,9 +200,10 @@ pub fn create(pool: &DbPool, data: &SampleInfoCreate) -> Result<SampleInfoRespon
             &data.lab_name,
             &data.project_name,
             &submitted_at,
-            &data.detection_date,
+            &detection_date,
             &data.main_components,
             &data.detection_type,
+            &data.type_key,
             &notes,
         ],
     )?;
@@ -396,10 +436,18 @@ pub fn update_status(
         )));
     }
 
-    tx.execute(
-        "UPDATE sample_info_records SET status=?1, updated_at=datetime('now','localtime') WHERE id=?2",
-        rusqlite::params![new_status, id],
-    )?;
+    // 检测完成：自动写入检测时间；其他状态只更新 status
+    if new_status == "检测完成" {
+        tx.execute(
+            "UPDATE sample_info_records SET status=?1, detection_date=date('now','localtime'), updated_at=datetime('now','localtime') WHERE id=?2",
+            rusqlite::params![new_status, id],
+        )?;
+    } else {
+        tx.execute(
+            "UPDATE sample_info_records SET status=?1, updated_at=datetime('now','localtime') WHERE id=?2",
+            rusqlite::params![new_status, id],
+        )?;
+    }
 
     let detail = format!(
         "样品信息#{} 状态流转：{} → {}",

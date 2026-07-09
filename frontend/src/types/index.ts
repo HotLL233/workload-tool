@@ -385,7 +385,20 @@ export interface SampleInfoRecord {
   detection_date: string;
   main_components: string;
   detection_type: string;
+  type_key: string;
   notes: string;
   created_at: string;
   updated_at?: string;
+}
+
+// ========== v0.4.23: 检测类型 ==========
+export interface SampleInfoType {
+  id: number;
+  type_key: string;
+  label: string;
+  description: string;
+  color: string;
+  sort_order: number;
+  is_active: number;
+  created_at: string;
 }

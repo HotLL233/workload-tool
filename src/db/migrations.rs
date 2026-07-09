@@ -310,5 +310,32 @@ pub fn run(conn: &rusqlite::Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_sir_submitted ON sample_info_records(submitted_at);"
     ).ok();
 
+    // v0.4.23: 检测类型表（软关联 sample_info_records.type_key）
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sample_info_types (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type_key TEXT NOT NULL UNIQUE,
+            label TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            color TEXT DEFAULT '#2e7d32',
+            sort_order INTEGER DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+        );"
+    ).ok();
+
+    // v0.4.23: 种子数据（检测类型）
+    conn.execute_batch(
+        "INSERT OR IGNORE INTO sample_info_types (type_key, label, description, color, sort_order) VALUES
+         ('icp', 'ICP', '电感耦合等离子体检测', '#2e7d32', 1),
+         ('thermal', '热稳定性', '热稳定性 · TGA · DSC 检测', '#e65100', 2),
+         ('mass', '质谱', '质谱分析检测', '#6a1b9a', 3),
+         ('other', '其他', '液相 · 气相 · 理化等', '#0277bd', 4);"
+    ).ok();
+
+    // v0.4.23: sample_info_records 增加 type_key 软关联列
+    conn.execute("ALTER TABLE sample_info_records ADD COLUMN type_key TEXT DEFAULT ''", []).ok();
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_sir_type_key ON sample_info_records(type_key)", []).ok();
+
     Ok(())
 }
