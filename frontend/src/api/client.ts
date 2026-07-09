@@ -22,6 +22,7 @@ import type {
   ImportMapping,
   HelpDocument,
   HelpArticle,
+  Division,
   Sheet1Data,
   Sheet2Row,
   Sheet3Row,
@@ -48,14 +49,27 @@ client.interceptors.response.use(
 export const getGroups = (): Promise<ApiResponse<ProjectGroup[]>> =>
   client.get('/groups').then((r) => r.data);
 
-export const createGroup = (data: { name: string; sort_order?: number; show_in_work?: boolean; show_in_rd?: boolean }): Promise<ApiResponse<ProjectGroup>> =>
+export const createGroup = (data: { name: string; sort_order?: number; show_in_work?: boolean; show_in_rd?: boolean; division_id?: number | null }): Promise<ApiResponse<ProjectGroup>> =>
   client.post('/groups', data).then((r) => r.data);
 
-export const updateGroup = (id: number, data: { name?: string; sort_order?: number; show_in_work?: boolean; show_in_rd?: boolean }): Promise<ApiResponse<ProjectGroup>> =>
+export const updateGroup = (id: number, data: { name?: string; sort_order?: number; show_in_work?: boolean; show_in_rd?: boolean; division_id?: number | null }): Promise<ApiResponse<ProjectGroup>> =>
   client.put(`/groups/${id}`, data).then((r) => r.data);
 
 export const deleteGroup = (id: number): Promise<ApiResponse<null>> =>
   client.delete(`/groups/${id}`).then((r) => r.data);
+
+// ========== v0.4.24: 事业部 CRUD ==========
+export const getDivisions = (): Promise<ApiResponse<Division[]>> =>
+  client.get('/divisions').then((r) => r.data);
+
+export const createDivision = (data: { name: string; sort_order?: number; color?: string }): Promise<ApiResponse<Division>> =>
+  client.post('/divisions', data).then((r) => r.data);
+
+export const updateDivision = (id: number, data: { name?: string; sort_order?: number; color?: string }): Promise<ApiResponse<Division>> =>
+  client.put(`/divisions/${id}`, data).then((r) => r.data);
+
+export const deleteDivision = (id: number): Promise<ApiResponse<null>> =>
+  client.delete(`/divisions/${id}`).then((r) => r.data);
 
 // --- Projects (v0.2.17 简化) ---
 export const getProjects = (params?: { group_id?: number; active_only?: boolean; method_type?: string }): Promise<ApiResponse<Project[]>> =>
@@ -121,7 +135,7 @@ export const getImportMappings = (): Promise<ApiResponse<ImportMapping[]>> =>
 export const getRecords = (params: { start?: string; end?: string; group_id?: number; page?: number; page_size?: number; include_deleted?: boolean; user_name?: string }): Promise<ApiResponse<PaginatedResponse<WorkRecord>>> =>
   client.get('/records', { params }).then((r) => r.data);
 
-export const createRecord = (data: { project_id: number; method_id?: number; user_name: string; quantity: number; recorded_at: string; group_id?: number }): Promise<ApiResponse<WorkRecord>> =>
+export const createRecord = (data: { project_id: number; method_id?: number; user_name: string; quantity: number; recorded_at: string; group_id?: number; division_id?: number | null }): Promise<ApiResponse<WorkRecord>> =>
   client.post('/records', data).then((r) => r.data);
 
 export const deleteRecord = (id: number): Promise<ApiResponse<null>> =>
@@ -251,7 +265,7 @@ export const getPreviewSheet10 = (params: { start: string; end: string }): Promi
 export const getRdRecords = (params: { start?: string; end?: string; group_id?: number; page?: number; page_size?: number; include_deleted?: boolean; user_name?: string }): Promise<ApiResponse<PaginatedResponse<WorkRecord>>> =>
   client.get('/rd-records', { params }).then((r) => r.data);
 
-export const createRdRecord = (data: { project_id: number; method_id?: number; user_name: string; quantity: number; recorded_at: string; group_id?: number }): Promise<ApiResponse<WorkRecord>> =>
+export const createRdRecord = (data: { project_id: number; method_id?: number; user_name: string; quantity: number; recorded_at: string; group_id?: number; division_id?: number | null }): Promise<ApiResponse<WorkRecord>> =>
   client.post('/rd-records', data).then((r) => r.data);
 
 export const deleteRdRecord = (id: number): Promise<ApiResponse<null>> =>

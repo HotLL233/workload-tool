@@ -1,7 +1,7 @@
 {
   "name": "workload-stats-frontend",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.4.24",
   "type": "module",
   "scripts": {
     "dev": "vite",

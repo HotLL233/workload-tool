@@ -9,6 +9,18 @@ export interface ProjectGroup {
   rd_record_count?: number;
   show_in_work?: boolean;
   show_in_rd?: boolean;
+  division_id?: number | null;
+  division_name?: string | null;
+}
+
+// ========== v0.4.24: 事业部 ==========
+export interface Division {
+  id: number;
+  name: string;
+  sort_order: number;
+  lab_count?: number;
+  color?: string;
+  is_active?: boolean;
 }
 
 // v0.2.17: 卡片独立 — Project 简化
@@ -67,6 +79,7 @@ export interface WorkRecord {
   method_name?: string;
   method_type?: string;
   multiplier?: number;
+  division_id?: number | null;
   created_at: string;
   status?: string;
   sampler?: string;

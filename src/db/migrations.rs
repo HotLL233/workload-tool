@@ -337,5 +337,38 @@ pub fn run(conn: &rusqlite::Connection) -> Result<()> {
     conn.execute("ALTER TABLE sample_info_records ADD COLUMN type_key TEXT DEFAULT ''", []).ok();
     conn.execute("CREATE INDEX IF NOT EXISTS idx_sir_type_key ON sample_info_records(type_key)", []).ok();
 
+    // ═══════════════════════════════════════════════════════════
+    // v0.4.24: 事业部层级 — divisions 主数据表 + 8 类种子 + 三表 division_id 列
+    // ═══════════════════════════════════════════════════════════
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS divisions (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT NOT NULL UNIQUE,
+            sort_order  INTEGER NOT NULL DEFAULT 0,
+            color       TEXT NOT NULL DEFAULT '#1976d2',
+            is_active   INTEGER NOT NULL DEFAULT 1,
+            deleted_at  TEXT,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_divisions_sort ON divisions(sort_order);"
+    ).ok();
+
+    // 种子（v0.4.24）：截图2 那 8 类，sort_order 与截图顺序一致
+    conn.execute_batch(
+        "INSERT OR IGNORE INTO divisions (name, sort_order) VALUES
+            ('液相',1),('气相',2),('理化',3),('ICP',4),
+            ('热分析',5),('质谱',6),('红外',7),('其他',99);"
+    ).ok();
+
+    // project_groups 增加 division_id（软关联；旧实验室自然为 NULL）
+    conn.execute("ALTER TABLE project_groups ADD COLUMN division_id INTEGER REFERENCES divisions(id)", []).ok();
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_groups_division ON project_groups(division_id)", []).ok();
+
+    // work_records / rd_work_records 增加 division_id（冗余快照，录入时锁定写入）
+    conn.execute("ALTER TABLE work_records ADD COLUMN division_id INTEGER REFERENCES divisions(id)", []).ok();
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_records_division ON work_records(division_id)", []).ok();
+    conn.execute("ALTER TABLE rd_work_records ADD COLUMN division_id INTEGER REFERENCES divisions(id)", []).ok();
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_rd_records_division ON rd_work_records(division_id)", []).ok();
+
     Ok(())
 }

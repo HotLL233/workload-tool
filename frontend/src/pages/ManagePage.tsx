@@ -19,12 +19,13 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import BackupIcon from '@mui/icons-material/Backup';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
-import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo } from '../api/client';
-import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord } from '../types';
+import BusinessIcon from '@mui/icons-material/Business';
+import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision } from '../api/client';
+import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord, Division } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
 import InlineEditCard from '../components/InlineEditCard';
 
-type TV = 'projects' | 'groups' | 'methods' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo';
+type TV = 'projects' | 'groups' | 'methods' | 'divisions' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo';
 
 const R = '2px';
 const cSx = { borderRadius: R, fontWeight: 700, border: '1px solid rgba(0,0,0,0.08)' };
@@ -49,6 +50,7 @@ const extractInstrumentFromMethodName = (methodName: string): string | null => {
 const TC = [
   { key: 'projects', label: '研发项目管理', icon: <ListAltIcon />, desc: '研发项目及关联实验室' },
   { key: 'groups', label: '实验室管理', icon: <FolderIcon />, desc: '新增编辑实验室映射录入选项卡' },
+  { key: 'divisions', label: '事业部管理', icon: <BusinessIcon />, desc: '管理事业部及下属实验室' },
   { key: 'methods', label: '检测方法管理', icon: <ScienceIcon />, desc: '液相/气相/理化/ICP/热分析等检测方法' },
   { key: 'trash', label: '回收站', icon: <DeleteSweepIcon />, desc: '恢复已删除的记录' },
   { key: 'audit', label: '审计日志', icon: <ReceiptLongIcon />, desc: '操作记录追溯' },
@@ -91,6 +93,25 @@ const ManagePage: React.FC = () => {
   // groups
   const [gs, setGs] = useState<ProjectGroup[]>([]);
   const lg = useCallback(async () => { try { const r = await getGroups(); if (r.code === 0 && r.data) setGs(r.data); } catch {} }, []);
+
+  // v0.4.24: 事业部
+  const [divs, setDivs] = useState<Division[]>([]);
+  const ldiv = useCallback(async () => { try { const r = await getDivisions(); if (r.code === 0 && r.data) setDivs(r.data); } catch {} }, []);
+  const [divEditOpen, setDivEditOpen] = useState(false);
+  const [divForm, setDivForm] = useState({ id: 0, name: '', sort_order: 10, color: '#1976d2' });
+  const hdiv = async () => {
+    if (!divForm.name.trim()) { sm('请输入事业部名称', true); return; }
+    try {
+      if (divForm.id > 0) {
+        const r = await updateDivision(divForm.id, { name: divForm.name, sort_order: divForm.sort_order, color: divForm.color });
+        if (r.code === 0) { sm('更新成功'); ldiv(); setDivEditOpen(false); } else sm(r.message, true);
+      } else {
+        const r = await createDivision({ name: divForm.name, sort_order: divForm.sort_order, color: divForm.color });
+        if (r.code === 0) { sm('创建成功'); ldiv(); setDivEditOpen(false); } else sm(r.message, true);
+      }
+    } catch { sm('操作失败', true); }
+  };
+  useEffect(() => { ldiv(); }, []);
 
   // projects (v0.2.17 simplified)
   const [ps, setPs] = useState<Project[]>([]);
@@ -318,10 +339,10 @@ const ManagePage: React.FC = () => {
   // v0.3.18: 实验室保存
     const handleSaveGroup = async (group: ProjectGroup) => {
     if (group.id > 0) {
-      const r = await updateGroup(group.id, { name: group.name, sort_order: group.sort_order, show_in_work: group.show_in_work, show_in_rd: group.show_in_rd });
+      const r = await updateGroup(group.id, { name: group.name, sort_order: group.sort_order, show_in_work: group.show_in_work, show_in_rd: group.show_in_rd, division_id: group.division_id ?? null });
       if (r.code === 0) { sm('更新成功'); lg(); setGroupEditOpen(false); setGroupEditItem(null); } else sm(r.message, true);
     } else {
-      const r = await createGroup({ name: group.name, sort_order: group.sort_order, show_in_work: group.show_in_work, show_in_rd: group.show_in_rd });
+      const r = await createGroup({ name: group.name, sort_order: group.sort_order, show_in_work: group.show_in_work, show_in_rd: group.show_in_rd, division_id: group.division_id ?? null });
       if (r.code === 0) { sm('创建成功'); lg(); setGroupEditOpen(false); setGroupEditItem(null); } else sm(r.message, true);
     }
   };
@@ -546,6 +567,40 @@ const ManagePage: React.FC = () => {
               </Box>
             </InlineEditCard>
           ))}
+    </Box>}
+
+    {/* ── 2.5 事业部管理 (v0.4.24) ── */}
+    {tb === 'divisions' && <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
+          const maxSo = divs.length ? Math.max(...divs.map(d => d.sort_order)) : 0;
+          setDivForm({ id: 0, name: '', sort_order: maxSo + 1, color: '#1976d2' });
+          setDivEditOpen(true);
+        }} size="small" sx={{ borderRadius: R, background: 'linear-gradient(135deg,#1976d2,#1565c0)', boxShadow: '0 4px 14px rgba(25,118,210,0.3)' }}>新建事业部</Button>
+      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>按检测技术维度（液相/气相/理化/ICP/热分析/质谱/红外/其他）归拢实验室；删除事业部仅解除实验室归属，不删除实验室。</Typography>
+      {divs.length === 0 ? <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>暂无事业部</Typography>
+        : <TableContainer component={Paper} sx={{ borderRadius: R, border: '1px solid rgba(0,0,0,0.06)' }}>
+          <Table size="small">
+            <TableHead><TableRow>
+              <TableCell sx={{ fontWeight: 700 }}>名称</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>排序</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>下属实验室</TableCell>
+              <TableCell sx={{ fontWeight: 700 }} align="right">操作</TableCell>
+            </TableRow></TableHead>
+            <TableBody>
+              {divs.map(d => <TableRow key={d.id} hover>
+                <TableCell>{d.name}</TableCell>
+                <TableCell>{d.sort_order}</TableCell>
+                <TableCell>{d.lab_count ?? 0}</TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => { setDivForm({ id: d.id, name: d.name, sort_order: d.sort_order, color: d.color || '#1976d2' }); setDivEditOpen(true); }} sx={{ color: '#f4511e' }}><EditIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" color="error" onClick={() => { setCa(() => async () => { const r = await deleteDivision(d.id); if (r.code === 0) { sm('删除成功'); ldiv(); lg(); } else sm(r.message, true); setCo(false); }); setCo(true); }}><DeleteIcon fontSize="small" /></IconButton>
+                </TableCell>
+              </TableRow>)}
+            </TableBody>
+          </Table>
+        </TableContainer>}
     </Box>}
 
     {/* ── 3. 检测方法管理 (v0.2.17 独立 methods API) ── */}
@@ -1275,6 +1330,17 @@ const ManagePage: React.FC = () => {
         {groupEditItem && <>
           <TextField label="实验室名称" fullWidth value={groupEditItem.name} onChange={e => setGroupEditItem({ ...groupEditItem, name: e.target.value })} sx={{ mt: 2, mb: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
           <TextField label="排序" type="number" fullWidth value={groupEditItem.sort_order} onChange={e => setGroupEditItem({ ...groupEditItem, sort_order: Number(e.target.value) || 0 })} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+          <FormControl fullWidth sx={{ mt: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }}>
+            <InputLabel>所属事业部</InputLabel>
+            <Select
+              value={groupEditItem.division_id ?? ''}
+              label="所属事业部"
+              onChange={e => setGroupEditItem({ ...groupEditItem!, division_id: e.target.value === '' ? null : Number(e.target.value) })}
+            >
+              <MenuItem value="">未分配</MenuItem>
+              {divs.map(d => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
+            </Select>
+          </FormControl>
           <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
             <Chip
               label="分析检测"
@@ -1298,6 +1364,20 @@ const ManagePage: React.FC = () => {
       <DialogActions>
         <Button onClick={() => { setGroupEditOpen(false); setGroupEditItem(null); }} sx={{ borderRadius: R }}>取消</Button>
         <Button onClick={() => { if (groupEditItem) handleSaveGroup(groupEditItem); }} variant="contained" sx={{ borderRadius: R }}>保存</Button>
+      </DialogActions>
+    </Dialog>
+
+    {/* v0.4.24: 事业部编辑弹窗 */}
+    <Dialog open={divEditOpen} onClose={() => setDivEditOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: R } }}>
+      <DialogTitle sx={{ fontWeight: 700 }}>{divForm.id > 0 ? '编辑事业部' : '新建事业部'}</DialogTitle>
+      <DialogContent>
+        <TextField label="事业部名称" fullWidth value={divForm.name} onChange={e => setDivForm({ ...divForm, name: e.target.value })} sx={{ mt: 2, mb: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }} helperText="如: 液相、气相、理化、ICP、热分析、质谱、红外、其他" />
+        <TextField label="排序" type="number" fullWidth value={divForm.sort_order} onChange={e => setDivForm({ ...divForm, sort_order: Number(e.target.value) || 0 })} sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+        <TextField label="颜色" fullWidth value={divForm.color} onChange={e => setDivForm({ ...divForm, color: e.target.value })} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} helperText="十六进制颜色，如 #1976d2（P2 预留）" />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setDivEditOpen(false)} sx={{ borderRadius: R }}>取消</Button>
+        <Button onClick={hdiv} variant="contained" sx={{ borderRadius: R }}>保存</Button>
       </DialogActions>
     </Dialog>
 

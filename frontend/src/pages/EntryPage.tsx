@@ -7,7 +7,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { Project, Method, MethodType, WorkRecord } from '../types';
+import type { Project, Method, MethodType, WorkRecord, ProjectGroup } from '../types';
 import { getProjects, getMethods, createRecord, getMethodTypes, getGroups, getRecords } from '../api/client';
 
 const R = '2px';
@@ -52,7 +52,7 @@ const EntryPage: React.FC = () => {
 
   const [mts, setMts] = useState<MethodType[]>([]);
   const [typeFilter, setTypeFilter] = useState('全部');
-  const [groups, setGroups] = useState<{id:number,name:string}[]>([]);
+  const [groups, setGroups] = useState<ProjectGroup[]>([]);
 
   // 今日记录
   const [todayRecords, setTodayRecords] = useState<WorkRecord[]>([]);
@@ -141,7 +141,8 @@ const EntryPage: React.FC = () => {
     const projectId = linkedProject?.id;
     if (!projectId) { setSnackMsg('该方法未关联任何研发项目'); setSnackErr(true); return false; }
     try {
-      const r = await createRecord({ project_id: projectId, method_id: method.id, user_name: userName, quantity, recorded_at: dateTime, group_id: gid });
+      const divId = groups.find(g => g.id === gid)?.division_id ?? null;
+      const r = await createRecord({ project_id: projectId, method_id: method.id, user_name: userName, quantity, recorded_at: dateTime, group_id: gid, division_id: divId });
       if (r.code === 0) {
         setSnackMsg(`录入成功: ${userName} ×${quantity}`); setSnackErr(false);
         // 自动刷新今日记录

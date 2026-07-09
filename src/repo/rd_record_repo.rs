@@ -6,7 +6,7 @@ use crate::repo::audit_repo;
 
 pub fn list(
     pool: &DbPool, project_id: Option<i64>, group_id: Option<i64>,
-    user_name: Option<&str>,
+    user_name: Option<&str>, division_id: Option<i64>,
     start: Option<&str>, end: Option<&str>, page: i64, page_size: i64,
     include_deleted: bool,
 ) -> Result<(Vec<RdRecordResponse>, i64)> {
@@ -17,6 +17,7 @@ pub fn list(
     if !include_deleted { where_clauses.push("wr.deleted_at IS NULL".to_string()); }
     if let Some(pid) = project_id { where_clauses.push(format!("wr.project_id={}", pid)); }
     if let Some(gid) = group_id { where_clauses.push(format!("wr.group_id={}", gid)); }
+    if let Some(did) = division_id { where_clauses.push(format!("wr.division_id={}", did)); }
     if let Some(un) = user_name { where_clauses.push("wr.user_name=?1".to_string()); params.push(Box::new(un.to_string())); }
     if let Some(s) = start { let idx = params.len() + 1; where_clauses.push(format!("wr.recorded_at>=?{}", idx)); params.push(Box::new(s.to_string())); }
     if let Some(e) = end { let idx = params.len() + 1; where_clauses.push(format!("wr.recorded_at<=?{}", idx)); params.push(Box::new(format!("{}T23:59:59", e))); }
@@ -113,9 +114,9 @@ pub fn create(pool: &DbPool, body: &RecordCreate) -> Result<RdRecordResponse> {
     let mut conn = pool.get()?;
     let tx = conn.transaction()?;
     tx.execute(
-        "INSERT INTO rd_work_records (project_id, method_id, user_name, quantity, recorded_at, group_id, status)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, '待取样')",
-        rusqlite::params!(body.project_id, body.method_id, &body.user_name, body.quantity, &body.recorded_at, body.group_id),
+        "INSERT INTO rd_work_records (project_id, method_id, user_name, quantity, recorded_at, group_id, division_id, status)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '待取样')",
+        rusqlite::params!(body.project_id, body.method_id, &body.user_name, body.quantity, &body.recorded_at, body.group_id, body.division_id),
     )?;
     let id = tx.last_insert_rowid();
     // 查询完整记录信息用于审计详情

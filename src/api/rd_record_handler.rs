@@ -14,6 +14,7 @@ pub struct RecordQuery {
     pub project_id: Option<i64>,
     pub group_id: Option<i64>,
     pub user_name: Option<String>,
+    pub division_id: Option<i64>,
     pub start: Option<String>,
     pub end: Option<String>,
     pub page: Option<i64>,
@@ -35,7 +36,8 @@ async fn list(State(pool): State<DbPool>, Query(q): Query<RecordQuery>) -> Resul
     let page = q.page.unwrap_or(1);
     let page_size = q.page_size.unwrap_or(50).min(500);
     let (items, total) = rd_record_repo::list(
-        &pool, q.project_id, q.group_id, q.user_name.as_deref(), q.start.as_deref(), q.end.as_deref(),
+        &pool, q.project_id, q.group_id, q.user_name.as_deref(), q.division_id,
+        q.start.as_deref(), q.end.as_deref(),
         page, page_size, q.include_deleted.unwrap_or(false),
     )?;
     Ok(Json(ApiResponse::ok(PaginatedResponse { items, total, page, page_size })))
@@ -50,6 +52,7 @@ async fn create(State(pool): State<DbPool>, Json(body): Json<RecordCreate>) -> R
         recorded_at: body.recorded_at,
         group_id: body.group_id,
         multiplier: body.multiplier,
+        division_id: body.division_id,
     };
     // Service layer: validates quantity > 0 and project existence
     Ok(Json(ApiResponse::ok(rd_record_service::create_record(&pool, &record)?)))

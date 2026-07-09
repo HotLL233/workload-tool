@@ -1,3 +1,4 @@
+pub mod division_repo;
 pub mod group_repo;
 pub mod project_repo;
 pub mod method_repo;

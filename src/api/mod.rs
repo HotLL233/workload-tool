@@ -1,4 +1,5 @@
 pub mod group_handler;
+pub mod division_handler;
 pub mod project_handler;
 pub mod method_handler;
 pub mod record_handler;
@@ -52,6 +53,7 @@ pub fn api_router(pool: DbPool, config: Arc<AppConfig>) -> Router {
         .route("/api/version", get(version))
         .route("/api/health", get(health_check))
         .merge(group_handler::router(pool.clone()))
+        .merge(division_handler::router(pool.clone()))
         .merge(project_handler::router(pool.clone()))
         .merge(method_handler::router(pool.clone()))
         .merge(record_handler::router(pool.clone()))

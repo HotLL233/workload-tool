@@ -26,6 +26,7 @@ pub struct RecordCreate {
     pub recorded_at: String,
     pub group_id: Option<i64>,
     pub multiplier: Option<f64>,
+    pub division_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
