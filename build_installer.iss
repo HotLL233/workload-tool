@@ -22,7 +22,7 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"
 
 [Files]
 Source: "D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.26\dist\workload-tool.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.26\static\*"; DestDir: "{app}\static"; Flags: ignoreversion recursesubdirs
+Source: "D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.26\backend\static\*"; DestDir: "{app}\static"; Flags: ignoreversion recursesubdirs
 Source: "D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.26\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
