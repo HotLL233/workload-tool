@@ -488,7 +488,13 @@ pub fn run(conn: &rusqlite::Connection) -> Result<()> {
     // 7. 种子数据：admin 用户（密码 admin123）
     conn.execute_batch(
         "INSERT OR IGNORE INTO users (username, password, is_admin, is_active)
-         VALUES ('admin', '$2b$12$LJ3m4ys3Lk0TSwHlvL.5M.YiN.YiZZaQr3bGPlcFn8Y5NJMmROhfS', 1, 1);"
+         VALUES ('admin', '$2b$12$ASTL4icDakjN.9/MrnH.JeeSgoIbT3FpfBIUccI8ZObnZYfYcZfqa', 1, 1);"
+    )?;
+    // 修复已存在的 admin 记录密码（兼容旧安装）
+    conn.execute(
+        "UPDATE users SET password = ?1, updated_at = datetime('now','localtime')
+         WHERE username = 'admin' AND password = ?2",
+        rusqlite::params!["$2b$12$ASTL4icDakjN.9/MrnH.JeeSgoIbT3FpfBIUccI8ZObnZYfYcZfqa", "$2b$12$LJ3m4ys3Lk0TSwHlvL.5M.YiN.YiZZaQr3bGPlcFn8Y5NJMmROhfS"],
     )?;
 
     // 8. 种子数据：为现有 4 个检测类型批量建立预置列可见性
