@@ -417,8 +417,8 @@ const SampleInfoEntry: React.FC = () => {
         </Box>
 
         {/* 动态多行表格 */}
-        <TableContainer component={Paper} sx={{ mb: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
-          <Table size="small" stickyHeader>
+        <TableContainer component={Paper} sx={{ mb: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)', overflowX: 'auto' }}>
+          <Table size="small" stickyHeader sx={{ minWidth: 1100 }}>
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700, p: 1, width: 40 }}>
@@ -434,7 +434,7 @@ const SampleInfoEntry: React.FC = () => {
                 </TableCell>
                 <TableCell sx={{ fontWeight: 700, p: 1, width: 50 }}>序号</TableCell>
                 {formColumns.map(col => (
-                  <TableCell key={col.field_key} sx={{ fontWeight: 700, p: 1, minWidth: col.width || 100 }}>
+                  <TableCell key={col.field_key} sx={{ fontWeight: 700, p: 1, minWidth: col.data_type === 'attachment' ? 130 : col.width || 100 }}>
                     {col.label}{col.is_required ? ' *' : ''}
                   </TableCell>
                 ))}
@@ -452,7 +452,7 @@ const SampleInfoEntry: React.FC = () => {
                   </TableCell>
                   <TableCell sx={{ p: 0.5, fontSize: '0.8rem', color: '#999' }}>{idx + 1}</TableCell>
                   {formColumns.map(col => (
-                    <TableCell key={col.field_key} sx={{ p: 0.5 }}>
+                    <TableCell key={col.field_key} sx={{ p: 0.5, minWidth: col.data_type === 'attachment' ? 130 : undefined }}>
                       {renderCellInput(col, idx)}
                     </TableCell>
                   ))}
@@ -523,7 +523,7 @@ const SampleInfoEntry: React.FC = () => {
                     </Box>
                     <Box sx={{ width: 50, fontSize: '0.875rem', color: '#999' }}>#{r.seq_no}</Box>
                     {listColumns.filter(c => !['status', 'seq_no'].includes(c.field_key)).map(col => (
-                      <Box key={col.field_key} sx={{ flex: 1, minWidth: col.width || 80, fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <Box key={col.field_key} sx={{ flex: 1, minWidth: col.data_type === 'attachment' ? 130 : col.width || 80, fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {renderCellValue(col, r)}
                       </Box>
                     ))}

@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
-  Box, Typography, TextField, IconButton, CircularProgress, Snackbar, Alert, Chip,
+  Box, Typography, TextField, CircularProgress, Snackbar, Alert, Chip,
   Button, Checkbox, Autocomplete, useMediaQuery, useTheme,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TablePagination,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -87,6 +86,7 @@ const SampleEntryPage: React.FC = () => {
 
   const labName = groups.find(g => g.id === gid)?.name || '';
   const labDivisionId = groups.find(g => g.id === gid)?.division_id;
+  const dt = 'rd';
 
   // v0.4.27-A: auto-fill user info
   useEffect(() => {
@@ -264,53 +264,53 @@ const SampleEntryPage: React.FC = () => {
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
 
-  return (<Box>
-    {/* 顶部返回 + 实验室标签 */}
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-      <IconButton onClick={() => navigate('/sample')} sx={{ bgcolor: 'rgba(230,81,0,0.08)', '&:hover': { bgcolor: 'rgba(230,81,0,0.15)' } }}>
-        <ArrowBackIcon />
-      </IconButton>
-      <Box sx={{ flex: 1 }}>
-        <Typography variant="h5" fontWeight={700}>研发送样录入</Typography>
-        {labName && <Chip label={`实验室: ${labName}`} size="small" color="primary" variant="outlined" sx={{ ml: 1, borderRadius: R, height: 22, fontSize: '0.7rem' }} />}
+  return (<Box sx={{ p: 2 }}>
+    {/* === 卡片式白色容器，绿色边框 — 与样品信息登记一致 === */}
+    <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: R, border: '2px solid #2e7d32', background: 'linear-gradient(145deg,#ffffff,#f1f8e9)' }}>
+
+      {/* 顶部标题栏 */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Box>
+          <Typography variant="h6" fontWeight={700} sx={{ cursor: 'pointer' }} onClick={() => navigate('/sample')}>← 研发送样录入</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+            <Chip label={`实验室: ${labName}`} size="small" color="primary" variant="outlined" />
+            <Typography variant="body2" color="text.secondary">检测类型: {dt} · 序号: 自动生成</Typography>
+          </Box>
+        </Box>
+        <Chip label="待检测" size="small" sx={{ bgcolor: '#fff3e0', color: '#e65100', fontWeight: 500 }} />
       </Box>
-    </Box>
 
-    {/* 公共送样时间 */}
-    <Box sx={{ mb: 2 }}>
-      <TextField
-        label="送样时间"
-        type="datetime-local"
-        size="small"
-        value={dateTime}
-        onChange={e => setDateTime(e.target.value)}
-        InputLabelProps={{ shrink: true }}
-        sx={{ width: isMobile ? '100%' : 220, '& .MuiOutlinedInput-root': { borderRadius: R } }}
-      />
-    </Box>
+      {/* 公共送样时间（整单公共） */}
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="body2" sx={{ mb: 0.5 }}>送样时间（整单公共）</Typography>
+        <TextField
+          type="datetime-local"
+          size="small"
+          value={dateTime}
+          onChange={e => setDateTime(e.target.value)}
+          InputLabelProps={{ shrink: true }}
+          sx={{ width: isMobile ? '100%' : 240, '& .MuiOutlinedInput-root': { borderRadius: R } }}
+        />
+      </Box>
 
-    {/* 操作按钮栏 */}
-    <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-      <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ borderRadius: R }}>
-        添加行
-      </Button>
-      <Button variant="outlined" size="small" startIcon={<DeleteIcon />} color="error" onClick={deleteChecked} sx={{ borderRadius: R }}
-        disabled={!rows.some(r => r.checked)}>
-        删除选中
-      </Button>
-      <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={reset} sx={{ borderRadius: R }}>
-        重置
-      </Button>
-      <Button variant="contained" size="small" startIcon={<SendIcon />} onClick={handleSubmit} sx={{ borderRadius: R, bgcolor: '#e65100', '&:hover': { bgcolor: '#bf360c' } }}
-        disabled={rows.length === 0}>
-        提交登记 ({rows.length}条)
-      </Button>
-    </Box>
+      {/* 操作按钮栏 */}
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+        <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ borderRadius: R }}>
+          添加行
+        </Button>
+        <Button variant="outlined" size="small" startIcon={<DeleteIcon />} color="error" onClick={deleteChecked} sx={{ borderRadius: R }}
+          disabled={!rows.some(r => r.checked)}>
+          删除选中
+        </Button>
+        <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={reset} sx={{ borderRadius: R }}>
+          重置
+        </Button>
+      </Box>
 
-    {/* 多行表格 — v0.4.28: 级联选择 + 列宽优化 */}
-    {rows.length > 0 && (
-      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', mb: 3, overflowX: 'auto' }}>
-        <Table size="small" sx={{ minWidth: 900 }} stickyHeader>
+      {/* 多行表格 — v0.4.28: 级联选择 + 列宽优化 */}
+      {rows.length > 0 && (
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', mb: 2, overflowX: 'auto' }}>
+        <Table size="small" sx={{ minWidth: 1100 }} stickyHeader>
           <TableHead>
             <TableRow sx={{ bgcolor: 'rgba(230,81,0,0.06)' }}>
               <TableCell padding="checkbox" sx={{ fontWeight: 700, fontSize: '0.8rem' }}>
@@ -442,7 +442,17 @@ const SampleEntryPage: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
-    )}
+      )}
+
+      {/* 底栏：提交按钮 */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+        <Button variant="contained" size="small" startIcon={<SendIcon />} onClick={handleSubmit}
+          sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}
+          disabled={rows.length === 0}>
+          提交登记（{rows.length} 行）
+        </Button>
+      </Box>
+    </Paper>
 
     {/* 今日记录 */}
     <Box sx={{ mt: 3 }}>
