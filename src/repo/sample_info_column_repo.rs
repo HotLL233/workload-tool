@@ -7,7 +7,8 @@ pub fn list_all(pool: &DbPool) -> Result<Vec<SampleInfoColumn>> {
     let conn = pool.get()?;
     let mut stmt = conn.prepare(
         "SELECT id, field_key, label, data_type, is_predefined, is_required, is_active, \
-         width, sort_order, options, show_in_list, show_in_export, show_in_form, created_at, updated_at \
+         width, sort_order, options, show_in_list, show_in_export, show_in_form, \
+         type_key, created_at, updated_at \
          FROM sample_info_columns ORDER BY sort_order ASC"
     )?;
     let rows = stmt.query_map([], |row| {
@@ -25,8 +26,9 @@ pub fn list_all(pool: &DbPool) -> Result<Vec<SampleInfoColumn>> {
             show_in_list: row.get::<_, i64>(10)? != 0,
             show_in_export: row.get::<_, i64>(11)? != 0,
             show_in_form: row.get::<_, i64>(12)? != 0,
-            created_at: row.get(13)?,
-            updated_at: row.get(14)?,
+            type_key: row.get(13)?,
+            created_at: row.get(14)?,
+            updated_at: row.get(15)?,
         })
     })?;
     Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
@@ -35,6 +37,92 @@ pub fn list_all(pool: &DbPool) -> Result<Vec<SampleInfoColumn>> {
 pub fn list_active(pool: &DbPool) -> Result<Vec<SampleInfoColumn>> {
     let items = list_all(pool)?;
     Ok(items.into_iter().filter(|c| c.is_active).collect())
+}
+
+/// 按检测类型加载启用的列（自定义列 + 该类型可见的预置列）
+pub fn list_active_by_type(pool: &DbPool, type_key: &str) -> Result<Vec<SampleInfoColumn>> {
+    let conn = pool.get()?;
+    let sql = "
+        -- 自定义列（该类型专属）
+        SELECT c.id, c.field_key, c.label, c.data_type, c.is_predefined, c.is_required, c.is_active,
+               c.width, c.sort_order, c.options, c.show_in_list, c.show_in_export, c.show_in_form,
+               c.type_key, c.created_at, c.updated_at
+        FROM sample_info_columns c
+        WHERE c.is_active = 1 AND c.type_key = ?1 AND c.is_predefined = 0
+
+        UNION ALL
+
+        -- 预置列（可见性表中标记为该类型可见的）
+        SELECT c.id, c.field_key, c.label, c.data_type, c.is_predefined, c.is_required, c.is_active,
+               c.width, c.sort_order, c.options, c.show_in_list, c.show_in_export, c.show_in_form,
+               c.type_key, c.created_at, c.updated_at
+        FROM sample_info_columns c
+        INNER JOIN sample_info_column_visibility v ON v.column_id = c.id
+        WHERE c.is_active = 1 AND c.is_predefined = 1
+          AND v.type_key = ?1 AND v.is_visible = 1
+
+        ORDER BY sort_order ASC
+    ";
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map([type_key], |row| {
+        Ok(SampleInfoColumn {
+            id: row.get(0)?,
+            field_key: row.get(1)?,
+            label: row.get(2)?,
+            data_type: row.get(3)?,
+            is_predefined: row.get::<_, i64>(4)? != 0,
+            is_required: row.get::<_, i64>(5)? != 0,
+            is_active: row.get::<_, i64>(6)? != 0,
+            width: row.get(7)?,
+            sort_order: row.get(8)?,
+            options: row.get(9)?,
+            show_in_list: row.get::<_, i64>(10)? != 0,
+            show_in_export: row.get::<_, i64>(11)? != 0,
+            show_in_form: row.get::<_, i64>(12)? != 0,
+            type_key: row.get(13)?,
+            created_at: row.get(14)?,
+            updated_at: row.get(15)?,
+        })
+    })?;
+    Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+/// 管理页专用：所有列 + visibility 信息（LEFT JOIN）
+pub fn list_all_with_visibility(pool: &DbPool, type_key: &str) -> Result<Vec<(SampleInfoColumn, bool)>> {
+    let conn = pool.get()?;
+    let sql = "
+        SELECT c.id, c.field_key, c.label, c.data_type, c.is_predefined, c.is_required, c.is_active,
+               c.width, c.sort_order, c.options, c.show_in_list, c.show_in_export, c.show_in_form,
+               c.type_key, c.created_at, c.updated_at,
+               COALESCE(v.is_visible, 0) as visible
+        FROM sample_info_columns c
+        LEFT JOIN sample_info_column_visibility v ON v.column_id = c.id AND v.type_key = ?1
+        ORDER BY c.is_predefined DESC, c.sort_order ASC
+    ";
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map([type_key], |row| {
+        let col = SampleInfoColumn {
+            id: row.get(0)?,
+            field_key: row.get(1)?,
+            label: row.get(2)?,
+            data_type: row.get(3)?,
+            is_predefined: row.get::<_, i64>(4)? != 0,
+            is_required: row.get::<_, i64>(5)? != 0,
+            is_active: row.get::<_, i64>(6)? != 0,
+            width: row.get(7)?,
+            sort_order: row.get(8)?,
+            options: row.get(9)?,
+            show_in_list: row.get::<_, i64>(10)? != 0,
+            show_in_export: row.get::<_, i64>(11)? != 0,
+            show_in_form: row.get::<_, i64>(12)? != 0,
+            type_key: row.get(13)?,
+            created_at: row.get(14)?,
+            updated_at: row.get(15)?,
+        };
+        let visible: i64 = row.get(16)?;
+        Ok((col, visible != 0))
+    })?;
+    Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)
 }
 
 pub fn create(pool: &DbPool, data: &ColumnCreate) -> Result<SampleInfoColumn> {
@@ -50,10 +138,10 @@ pub fn create(pool: &DbPool, data: &ColumnCreate) -> Result<SampleInfoColumn> {
     let show_in_form = data.show_in_form.unwrap_or(true);
 
     conn.execute(
-        "INSERT INTO sample_info_columns (field_key, label, data_type, is_predefined, is_required, is_active, width, sort_order, options, show_in_list, show_in_export, show_in_form) \
-         VALUES (?1, ?2, ?3, 0, ?4, 1, ?5, ?6, ?7, ?8, ?9, ?10)",
+        "INSERT INTO sample_info_columns (field_key, label, data_type, type_key, is_predefined, is_required, is_active, width, sort_order, options, show_in_list, show_in_export, show_in_form) \
+         VALUES (?1, ?2, ?3, ?4, 0, ?5, 1, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
-            field_key, label, data_type,
+            field_key, label, data_type, data.type_key,
             is_required as i64, width, sort_order, data.options,
             show_in_list as i64, show_in_export as i64, show_in_form as i64,
         ],

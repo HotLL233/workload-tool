@@ -1,17 +1,72 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json, Router,
 };
+use serde::Deserialize;
 use crate::db::DbPool;
 use crate::error::Result;
 use crate::models::sample_info_column::*;
+use crate::models::sample_info_column_visibility::{VisibilityUpdateRequest, VisibilityItem};
 use crate::models::ApiResponse;
-use crate::repo::sample_info_column_repo;
+use crate::repo::{sample_info_column_repo, sample_info_column_visibility_repo};
+use serde::Serialize;
+
+#[derive(Deserialize, Default)]
+pub struct ColumnQuery {
+    pub type_key: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct ColumnWithVisibility {
+    pub id: i64,
+    pub field_key: String,
+    pub label: String,
+    pub data_type: String,
+    pub is_predefined: bool,
+    pub is_required: bool,
+    pub is_active: bool,
+    pub width: i64,
+    pub sort_order: i64,
+    pub options: Option<String>,
+    pub show_in_list: bool,
+    pub show_in_export: bool,
+    pub show_in_form: bool,
+    pub type_key: Option<String>,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+    pub is_visible_in_type: bool,
+}
+
+impl From<(SampleInfoColumn, bool)> for ColumnWithVisibility {
+    fn from((col, visible): (SampleInfoColumn, bool)) -> Self {
+        ColumnWithVisibility {
+            id: col.id,
+            field_key: col.field_key,
+            label: col.label,
+            data_type: col.data_type,
+            is_predefined: col.is_predefined,
+            is_required: col.is_required,
+            is_active: col.is_active,
+            width: col.width,
+            sort_order: col.sort_order,
+            options: col.options,
+            show_in_list: col.show_in_list,
+            show_in_export: col.show_in_export,
+            show_in_form: col.show_in_form,
+            type_key: col.type_key,
+            created_at: col.created_at,
+            updated_at: col.updated_at,
+            is_visible_in_type: visible,
+        }
+    }
+}
 
 pub fn router(pool: DbPool) -> Router {
     Router::new()
         .route("/api/sample-info/columns", axum::routing::get(list).post(create))
         .route("/api/sample-info/columns/active", axum::routing::get(list_active))
+        .route("/api/sample-info/columns/manage", axum::routing::get(list_manage))
+        .route("/api/sample-info/columns/visibility", axum::routing::put(update_visibility))
         .route(
             "/api/sample-info/columns/sort",
             axum::routing::put(reorder),
@@ -25,16 +80,57 @@ pub fn router(pool: DbPool) -> Router {
 
 async fn list(
     State(pool): State<DbPool>,
+    Query(q): Query<ColumnQuery>,
 ) -> Result<Json<ApiResponse<Vec<SampleInfoColumn>>>> {
-    let items = sample_info_column_repo::list_all(&pool)?;
+    let items = if let Some(ref tk) = q.type_key {
+        if tk.is_empty() {
+            sample_info_column_repo::list_all(&pool)?
+        } else {
+            sample_info_column_repo::list_active_by_type(&pool, tk)?
+        }
+    } else {
+        sample_info_column_repo::list_all(&pool)?
+    };
     Ok(Json(ApiResponse::ok(items)))
 }
 
 async fn list_active(
     State(pool): State<DbPool>,
+    Query(q): Query<ColumnQuery>,
 ) -> Result<Json<ApiResponse<Vec<SampleInfoColumn>>>> {
-    let items = sample_info_column_repo::list_active(&pool)?;
+    let items = if let Some(ref tk) = q.type_key {
+        if tk.is_empty() {
+            sample_info_column_repo::list_active(&pool)?
+        } else {
+            sample_info_column_repo::list_active_by_type(&pool, tk)?
+        }
+    } else {
+        sample_info_column_repo::list_active(&pool)?
+    };
     Ok(Json(ApiResponse::ok(items)))
+}
+
+/// GET /api/sample-info/columns/manage?type_key=xxx — 管理页专用（列 + 可见性）
+async fn list_manage(
+    State(pool): State<DbPool>,
+    Query(q): Query<ColumnQuery>,
+) -> Result<Json<ApiResponse<Vec<ColumnWithVisibility>>>> {
+    let type_key = q.type_key.unwrap_or_default();
+    if type_key.is_empty() {
+        return Err(crate::error::AppError::Validation("type_key 不能为空".into()));
+    }
+    let items = sample_info_column_repo::list_all_with_visibility(&pool, &type_key)?;
+    let result: Vec<ColumnWithVisibility> = items.into_iter().map(ColumnWithVisibility::from).collect();
+    Ok(Json(ApiResponse::ok(result)))
+}
+
+/// PUT /api/sample-info/columns/visibility — 批量更新预置列可见性
+async fn update_visibility(
+    State(pool): State<DbPool>,
+    Json(body): Json<VisibilityUpdateRequest>,
+) -> Result<Json<ApiResponse<()>>> {
+    sample_info_column_visibility_repo::batch_update(&pool, &body, "system")?;
+    Ok(Json(ApiResponse::ok_msg("可见性更新成功")))
 }
 
 async fn create(

@@ -5,13 +5,13 @@ use crate::models::record::{RecordCreate, RecordUpdate};
 use crate::repo;
 
 /// Validate and create a work record
-pub fn create_record(pool: &DbPool, input: &RecordCreate) -> Result<RdRecordResponse, AppError> {
+pub fn create_record(pool: &DbPool, input: &RecordCreate, batch_no: Option<String>, notes: Option<String>) -> Result<RdRecordResponse, AppError> {
     if input.quantity <= 0 {
         return Err(AppError::Validation("数量必须大于0".into()));
     }
     // Verify project exists (returns error if not found)
     repo::project_repo::get_by_id(pool, input.project_id)?;
-    repo::rd_record_repo::create(pool, input)
+    repo::rd_record_repo::create(pool, input, batch_no, notes)
 }
 
 /// Update a work record (with change detection and deleted check)

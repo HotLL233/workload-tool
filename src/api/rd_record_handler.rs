@@ -4,7 +4,7 @@ use crate::db::DbPool;
 use crate::error::Result;
 use crate::models::ApiResponse;
 use crate::models::PaginatedResponse;
-use crate::models::rd_record::{RdRecordResponse, RdSampleUpdate};
+use crate::models::rd_record::{RdRecordCreate, RdRecordResponse, RdSampleUpdate};
 use crate::models::record::{RecordCreate, RecordUpdate};
 use crate::repo::rd_record_repo;
 use crate::service::rd_record_service;
@@ -43,7 +43,7 @@ async fn list(State(pool): State<DbPool>, Query(q): Query<RecordQuery>) -> Resul
     Ok(Json(ApiResponse::ok(PaginatedResponse { items, total, page, page_size })))
 }
 
-async fn create(State(pool): State<DbPool>, Json(body): Json<RecordCreate>) -> Result<Json<ApiResponse<RdRecordResponse>>> {
+async fn create(State(pool): State<DbPool>, Json(body): Json<RdRecordCreate>) -> Result<Json<ApiResponse<RdRecordResponse>>> {
     let record = RecordCreate {
         project_id: body.project_id,
         method_id: body.method_id,
@@ -51,11 +51,11 @@ async fn create(State(pool): State<DbPool>, Json(body): Json<RecordCreate>) -> R
         quantity: body.quantity,
         recorded_at: body.recorded_at,
         group_id: body.group_id,
-        multiplier: body.multiplier,
+        multiplier: None,
         division_id: body.division_id,
     };
     // Service layer: validates quantity > 0 and project existence
-    Ok(Json(ApiResponse::ok(rd_record_service::create_record(&pool, &record)?)))
+    Ok(Json(ApiResponse::ok(rd_record_service::create_record(&pool, &record, body.batch_no, body.notes)?)))
 }
 
 async fn update(State(pool): State<DbPool>, Path(id): Path<i64>, Json(body): Json<RecordUpdate>) -> Result<Json<ApiResponse<RdRecordResponse>>> {

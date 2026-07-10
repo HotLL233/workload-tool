@@ -15,6 +15,7 @@ pub struct SampleInfoColumn {
     pub show_in_list: bool,
     pub show_in_export: bool,
     pub show_in_form: bool,
+    pub type_key: Option<String>,
     pub created_at: String,
     pub updated_at: Option<String>,
 }
@@ -24,6 +25,7 @@ pub struct ColumnCreate {
     pub field_key: String,
     pub label: String,
     pub data_type: String,
+    pub type_key: Option<String>,
     pub width: Option<i64>,
     pub sort_order: Option<i64>,
     pub options: Option<String>,

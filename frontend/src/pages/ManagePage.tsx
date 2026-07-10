@@ -213,9 +213,14 @@ const ManagePage: React.FC = () => {
 
   // ④ 自定义列配置
   const [siColumns, setSiColumns] = useState<SampleInfoColumn[]>([]);
-  const loadSiColumns = useCallback(async () => {
-    try { const r = await getSampleInfoColumns(); if (r.code === 0 && r.data) setSiColumns(r.data); } catch {}
-  }, []);
+  const [siColTypeKey, setSiColTypeKey] = useState<string>('');
+  const loadSiColumns = useCallback(async (typeKey?: string) => {
+    const tk = typeKey || siColTypeKey;
+    try {
+      const r = await getSampleInfoColumns(tk || undefined);
+      if (r.code === 0 && r.data) setSiColumns(r.data);
+    } catch {}
+  }, [siColTypeKey]);
   const [colEditOpen, setColEditOpen] = useState(false);
   const [colEditItem, setColEditItem] = useState<SampleInfoColumn | null>(null);
   const [colForm, setColForm] = useState({
@@ -1106,32 +1111,6 @@ const ManagePage: React.FC = () => {
         </TableContainer>
       </Paper>
 
-      {/* ② 记录查询（卡片式统计 + 表格） */}
-      {/* 统计卡片 */}
-      <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)', background: 'linear-gradient(135deg,#f1f8e9,#ffffff)' }}>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5, color: '#2e7d32' }}>记录统计概览</Typography>
-        {!siStats ? (
-          <Typography color="text.secondary">加载中…</Typography>
-        ) : (
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <Box sx={{ textAlign: 'center', minWidth: 80, p: 1.5, bgcolor: '#fff', borderRadius: R, border: '1px solid #e0e0e0', flex: '1 0 auto' }}>
-              <Typography variant="caption" color="text.secondary">总记录数</Typography>
-              <Typography variant="h5" fontWeight={800} color="#2e7d32">{siStats.total}</Typography>
-            </Box>
-            {['待检测', '待取样', '已取样', '检测完成'].map(st => {
-              const stat = (siStats.by_status || []).find((s: any) => s.name === st);
-              const colors: Record<string, string> = { '待检测': '#ff9800', '待取样': '#2196f3', '已取样': '#4caf50', '检测完成': '#9e9e9e' };
-              return (
-                <Box key={st} sx={{ textAlign: 'center', minWidth: 80, p: 1.5, bgcolor: '#fff', borderRadius: R, border: '1px solid #e0e0e0', flex: '1 0 auto' }}>
-                  <Typography variant="caption" color="text.secondary">{st}</Typography>
-                  <Typography variant="h5" fontWeight={800} sx={{ color: colors[st] }}>{stat ? stat.count : 0}</Typography>
-                </Box>
-              );
-            })}
-          </Box>
-        )}
-      </Paper>
-
       {/* 筛选区 */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
         <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>记录查询（共 {siTotal} 条）</Typography>
@@ -1248,7 +1227,29 @@ const ManagePage: React.FC = () => {
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
           管理样品信息登记页面显示的列字段。预置字段不可删除，自定义字段可增删改。
+          选择检测类型后可针对该类型控制预置列的显示/隐藏。
         </Typography>
+        {/* v0.4.27-A: 检测类型选择器 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>检测类型</InputLabel>
+            <Select
+              value={siColTypeKey}
+              label="检测类型"
+              onChange={e => {
+                const tk = e.target.value;
+                setSiColTypeKey(tk);
+                if (tk) loadSiColumns(tk);
+              }}
+            >
+              <MenuItem value="">全部</MenuItem>
+              {siTypes.map(t => <MenuItem key={t.id} value={t.type_key}>{t.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <Typography variant="caption" color="text.secondary">
+            预置列在所有类型中共享，可针对每个类型控制是否显示。
+          </Typography>
+        </Box>
         {siColumns.length === 0 ? (
           <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>暂无列配置</Typography>
         ) : (

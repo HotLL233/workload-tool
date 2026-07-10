@@ -12,6 +12,9 @@ pub mod import;
 pub mod sample_info;
 pub mod sample_info_column;
 pub mod sample_info_type;
+pub mod sample_info_attachment;
+pub mod sample_info_column_visibility;
+pub mod user;
 
 use serde::{Deserialize, Serialize};
 

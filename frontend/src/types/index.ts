@@ -423,8 +423,66 @@ export interface SampleInfoColumn {
   show_in_list: boolean;
   show_in_export: boolean;
   show_in_form: boolean;
+  type_key?: string | null;
   created_at: string;
   updated_at: string | null;
+}
+
+// ========== v0.4.27-A: 列可见性 ==========
+export interface SampleInfoColumnVisibility {
+  id: number;
+  type_key: string;
+  column_id: number;
+  is_visible: boolean;
+}
+
+// ========== v0.4.27-A: 附件 ==========
+export interface SampleInfoAttachment {
+  id: number;
+  record_id: number;
+  file_name: string;
+  stored_name: string;
+  file_size: number;
+  file_type: string;
+  created_at: string;
+}
+
+// ========== v0.4.27-A: 用户 ==========
+export interface User {
+  id: number;
+  username: string;
+  division_id?: number | null;
+  division_name?: string | null;
+  group_id?: number | null;
+  group_name?: string | null;
+  is_admin: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: User;
+}
+
+export interface UserUpdate {
+  username?: string;
+  password?: string;
+  division_id?: number | null;
+  group_id?: number | null;
+  is_admin?: boolean;
+  is_active?: boolean;
+}
+
+export interface ColumnVisibilityItem {
+  column_id: number;
+  is_visible: boolean;
 }
 
 // ========== v0.4.23: 检测类型 ==========

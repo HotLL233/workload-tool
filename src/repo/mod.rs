@@ -10,3 +10,6 @@ pub mod article_repo;
 pub mod sample_info_repo;
 pub mod sample_info_column_repo;
 pub mod sample_info_type_repo;
+pub mod sample_info_attachment_repo;
+pub mod sample_info_column_visibility_repo;
+pub mod user_repo;

@@ -5,18 +5,22 @@ import {
   Chip, Snackbar, Alert, Select, MenuItem, FormControl, InputLabel,
   TablePagination, Collapse, CircularProgress, Checkbox, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Switch,
+  Switch, LinearProgress,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import DescriptionIcon from '@mui/icons-material/Description';
 import {
   getSampleInfoRecords, createSampleInfo, updateSampleInfo, updateSampleInfoStatus,
   getSampleInfoTypes, getDivisions, getActiveSampleInfoColumns,
+  getSampleInfoAttachments, uploadSampleInfoAttachment, getSampleInfoAttachmentUrl,
+  deleteSampleInfoAttachment,
 } from '../api/client';
-import type { SampleInfoRecord, SampleInfoType, Division, SampleInfoColumn } from '../types';
+import type { SampleInfoRecord, SampleInfoType, Division, SampleInfoColumn, SampleInfoAttachment } from '../types';
 
 const R = '2px';
 const PAGE_SIZE = 20;
@@ -81,6 +85,43 @@ const SampleInfoEntry: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
 
+  // v0.4.27-A: 附件
+  const [attachments, setAttachments] = useState<Record<number, SampleInfoAttachment[]>>({});
+  const [attLoading, setAttLoading] = useState<Record<number, boolean>>({});
+  const loadAttachments = useCallback(async (recordId: number) => {
+    setAttLoading(p => ({ ...p, [recordId]: true }));
+    try {
+      const r = await getSampleInfoAttachments(recordId);
+      if (r.code === 0 && r.data) {
+        setAttachments(p => ({ ...p, [recordId]: r.data! }));
+      }
+    } catch {} finally {
+      setAttLoading(p => ({ ...p, [recordId]: false }));
+    }
+  }, []);
+  const handleUploadAttachment = useCallback(async (recordId: number, file: File) => {
+    try {
+      const r = await uploadSampleInfoAttachment(recordId, file);
+      if (r.code === 0) {
+        setSnack({ open: true, msg: '附件上传成功', sev: 'success' });
+        loadAttachments(recordId);
+      } else {
+        setSnack({ open: true, msg: r.message || '上传失败', sev: 'error' });
+      }
+    } catch (e: any) {
+      setSnack({ open: true, msg: e.message || '上传失败', sev: 'error' });
+    }
+  }, [loadAttachments]);
+  const handleDeleteAttachment = useCallback(async (attId: number, recordId: number) => {
+    try {
+      await deleteSampleInfoAttachment(attId);
+      setSnack({ open: true, msg: '附件已删除', sev: 'success' });
+      loadAttachments(recordId);
+    } catch (e: any) {
+      setSnack({ open: true, msg: e.message || '删除失败', sev: 'error' });
+    }
+  }, [loadAttachments]);
+
   // 检测类型
   const [types, setTypes] = useState<SampleInfoType[]>([]);
   useEffect(() => {
@@ -93,9 +134,9 @@ const SampleInfoEntry: React.FC = () => {
     getDivisions().then(r => { if (r.code === 0 && r.data) setDivs(r.data); }).catch(() => {});
   }, []);
 
-  // 加载列配置
+  // 加载列配置（v0.4.27-A: 按检测类型过滤）
   useEffect(() => {
-    getActiveSampleInfoColumns().then(r => {
+    getActiveSampleInfoColumns(dt || undefined).then(r => {
       if (r.code === 0 && r.data) {
         const cols = r.data;
         setColumns(cols);
@@ -208,7 +249,13 @@ const SampleInfoEntry: React.FC = () => {
     }
   };
 
-  const doExpand = (id: number) => setExpandedId(p => p === id ? null : id);
+  const doExpand = (id: number) => {
+    const next = expandedId === id ? null : id;
+    setExpandedId(next);
+    if (next && !attachments[next]) {
+      loadAttachments(next);
+    }
+  };
 
   const doEdit = (rec: SampleInfoRecord) => {
     setEditingId(rec.id);
@@ -524,6 +571,64 @@ const SampleInfoEntry: React.FC = () => {
                                 {NEXT_STATUS_LABEL[r.status]}
                               </Button>
                             )}
+                          </Box>
+
+                          {/* v0.4.27-A: 附件区块 */}
+                          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #e0e0e0' }}>
+                            <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <AttachFileIcon fontSize="inherit" /> 附件
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mt: 0.5 }}>
+                              {/* 上传按钮 */}
+                              <Button
+                                component="label"
+                                variant="outlined"
+                                size="small"
+                                startIcon={<AddIcon />}
+                                sx={{ borderRadius: R, fontSize: '0.75rem' }}
+                              >
+                                上传附件
+                                <input
+                                  type="file"
+                                  hidden
+                                  accept=".pdf,.doc,.docx"
+                                  onChange={(e) => {
+                                    const file = (e.target as HTMLInputElement).files?.[0];
+                                    if (file) {
+                                      if (file.size > 10 * 1024 * 1024) {
+                                        setSnack({ open: true, msg: '文件大小不能超过10MB', sev: 'error' });
+                                        return;
+                                      }
+                                      handleUploadAttachment(r.id, file);
+                                    }
+                                    (e.target as HTMLInputElement).value = '';
+                                  }}
+                                />
+                              </Button>
+                              {attLoading[r.id] && <CircularProgress size={16} />}
+                              {/* 附件列表 */}
+                              {(attachments[r.id] || []).map(att => (
+                                <Chip
+                                  key={att.id}
+                                  icon={<DescriptionIcon />}
+                                  label={att.file_name}
+                                  size="small"
+                                  onClick={() => {
+                                    const url = getSampleInfoAttachmentUrl(att.id);
+                                    if (att.file_type === 'application/pdf') {
+                                      window.open(url, '_blank');
+                                    } else {
+                                      const a = document.createElement('a');
+                                      a.href = url;
+                                      a.download = att.file_name;
+                                      a.click();
+                                    }
+                                  }}
+                                  onDelete={() => handleDeleteAttachment(att.id, r.id)}
+                                  sx={{ borderRadius: R, cursor: 'pointer', fontSize: '0.75rem' }}
+                                />
+                              ))}
+                            </Box>
                           </Box>
                         </>
                       )}

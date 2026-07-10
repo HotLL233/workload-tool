@@ -15,6 +15,9 @@ import HelpPage from './pages/HelpPage';
 import SampleInfoHome from './pages/SampleInfoHome';
 import SampleInfoEntry from './pages/SampleInfoEntry';
 import SampleInfoStatsPage from './pages/SampleInfoStatsPage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
@@ -27,26 +30,30 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
 const NotFoundPage: React.FC = () => <div style={{ padding: '2rem', textAlign: 'center', marginTop: '10vh' }}><h1 style={{ fontSize: '4rem', color: '#ccc', margin: 0 }}>404</h1><p style={{ color: '#666', marginTop: '1rem' }}>页面未找到</p></div>;
 
 const App: React.FC = () => (<ErrorBoundary><UserProvider><Routes><Route element={<Layout />}>
+  {/* 公开路由 */}
+  <Route path="/login" element={<LoginPage />} />
+  <Route path="/register" element={<RegisterPage />} />
+
   {/* 一级: 两大入口卡片 */}
   <Route path="/" element={<HomePage />} />
 
-  {/* 送样分支: /sample → portal → entry/list/stats */}
-  <Route path="/sample" element={<SamplePortal />} />
-  <Route path="/sample/:groupId" element={<SampleEntryPage />} />
-  <Route path="/sample/stats" element={<SampleStatsPage />} />
-  <Route path="/sample-records" element={<RdRecordsPage />} />
+  {/* 送样分支: /sample → portal → entry/list/stats — v0.4.27-A: 需登录 */}
+  <Route path="/sample" element={<ProtectedRoute><SamplePortal /></ProtectedRoute>} />
+  <Route path="/sample/:groupId" element={<ProtectedRoute><SampleEntryPage /></ProtectedRoute>} />
+  <Route path="/sample/stats" element={<ProtectedRoute><SampleStatsPage /></ProtectedRoute>} />
+  <Route path="/sample-records" element={<ProtectedRoute><RdRecordsPage /></ProtectedRoute>} />
 
-  {/* 样品信息登记分支: /sample-info → home → entry/records/stats */}
-  <Route path="/sample-info" element={<SampleInfoHome />} />
-  <Route path="/sample-info/entry" element={<SampleInfoEntry />} />
-  <Route path="/sample-info/stats" element={<SampleInfoStatsPage />} />
+  {/* 样品信息登记分支: /sample-info → home → entry/records/stats — v0.4.27-A: 需登录 */}
+  <Route path="/sample-info" element={<ProtectedRoute><SampleInfoHome /></ProtectedRoute>} />
+  <Route path="/sample-info/entry" element={<ProtectedRoute><SampleInfoEntry /></ProtectedRoute>} />
+  <Route path="/sample-info/stats" element={<ProtectedRoute><SampleInfoStatsPage /></ProtectedRoute>} />
 
   {/* 工作量分支: /workload → portal → entry/stats/manage */}
-  <Route path="/workload" element={<WorkloadPortal />} />
-  <Route path="/entry/:groupId" element={<EntryPage />} />
-  <Route path="/stats" element={<StatsPage />} />
+  <Route path="/workload" element={<ProtectedRoute><WorkloadPortal /></ProtectedRoute>} />
+  <Route path="/entry/:groupId" element={<ProtectedRoute><EntryPage /></ProtectedRoute>} />
+  <Route path="/stats" element={<ProtectedRoute><StatsPage /></ProtectedRoute>} />
   <Route path="/help" element={<HelpPage />} />
-  <Route path="/manage" element={<ManagePage />} />
+  <Route path="/manage" element={<ProtectedRoute><ManagePage /></ProtectedRoute>} />
 
   <Route path="/404" element={<NotFoundPage />} />
   <Route path="*" element={<Navigate to="/404" replace />} />

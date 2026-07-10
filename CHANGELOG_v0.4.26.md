@@ -54,3 +54,9 @@
 ## 安装说明
 - Windows：运行安装包即可覆盖安装（AppId 与 v0.4.25 一致）
 - Docker：`docker compose pull && docker compose up -d`
+
+## v0.4.26 补丁（2026-07-10 14:17）
+### 修复：Windows 安装包静态文件打包错误
+- **根因**：`vite.config.ts` 构建输出到 `backend/static/`，但 `build_installer.iss` 从根目录 `static/` 取文件，导致安装包内置的是旧版前端页面
+- **修复**：`build_installer.iss` Source 路径从 `static\*` 改为 `backend\static\*`，与 Dockerfile 对齐
+- **影响**：仅影响 Windows 安装包。Docker 版本来就正确（Dockerfile 已用 `backend/static/`）

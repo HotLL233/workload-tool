@@ -32,7 +32,7 @@ pub fn list(
                     '未知'
                 ) AS group_name,
                 wr.user_name, wr.quantity,
-                wr.recorded_at, wr.created_at, wr.deleted_at,
+                wr.recorded_at, wr.batch_no, wr.notes, wr.created_at, wr.deleted_at,
                 wr.status, wr.sampler, wr.sampled_at,
                 COALESCE(NULLIF(m.full_name,''), NULLIF(m.name,'')) AS method_name,
                 (SELECT group_concat(DISTINCT mt.name)
@@ -53,9 +53,11 @@ pub fn list(
         |row| Ok(RdRecordResponse {
             id: row.get(0)?, project_id: row.get(1)?, method_id: row.get(2)?,
             project_name: row.get(3)?, group_name: row.get(4)?, user_name: row.get(5)?,
-            quantity: row.get(6)?, recorded_at: row.get(7)?, created_at: row.get(8)?,
-            deleted_at: row.get(9)?, status: row.get(10)?, sampler: row.get(11)?,
-            sampled_at: row.get(12)?, method_name: row.get(13)?, method_type: row.get(14)?,
+            quantity: row.get(6)?, recorded_at: row.get(7)?,
+            batch_no: row.get(8)?, notes: row.get(9)?,
+            created_at: row.get(10)?, deleted_at: row.get(11)?,
+            status: row.get(12)?, sampler: row.get(13)?,
+            sampled_at: row.get(14)?, method_name: row.get(15)?, method_type: row.get(16)?,
         }),
     )?;
     let items: Vec<RdRecordResponse> = rows.collect::<std::result::Result<Vec<_>, _>>()?;
@@ -81,7 +83,7 @@ fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<RdRecordRes
                     '未知'
                 ) AS group_name,
                 wr.user_name, wr.quantity,
-                wr.recorded_at, wr.created_at, wr.deleted_at,
+                wr.recorded_at, wr.batch_no, wr.notes, wr.created_at, wr.deleted_at,
                 wr.status, wr.sampler, wr.sampled_at,
                 COALESCE(NULLIF(m.full_name,''), NULLIF(m.name,'')) AS method_name,
                 (SELECT group_concat(DISTINCT mt.name)
@@ -95,9 +97,11 @@ fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<RdRecordRes
         |row| Ok(RdRecordResponse {
             id: row.get(0)?, project_id: row.get(1)?, method_id: row.get(2)?,
             project_name: row.get(3)?, group_name: row.get(4)?, user_name: row.get(5)?,
-            quantity: row.get(6)?, recorded_at: row.get(7)?, created_at: row.get(8)?,
-            deleted_at: row.get(9)?, status: row.get(10)?, sampler: row.get(11)?,
-            sampled_at: row.get(12)?, method_name: row.get(13)?, method_type: row.get(14)?,
+            quantity: row.get(6)?, recorded_at: row.get(7)?,
+            batch_no: row.get(8)?, notes: row.get(9)?,
+            created_at: row.get(10)?, deleted_at: row.get(11)?,
+            status: row.get(12)?, sampler: row.get(13)?,
+            sampled_at: row.get(14)?, method_name: row.get(15)?, method_type: row.get(16)?,
         }),
     ).map_err(|e| match e {
         rusqlite::Error::QueryReturnedNoRows => crate::error::AppError::NotFound("记录不存在".into()),
@@ -110,13 +114,13 @@ pub fn get_by_id(pool: &DbPool, id: i64) -> Result<RdRecordResponse> {
     get_by_id_on_conn(&conn, id)
 }
 
-pub fn create(pool: &DbPool, body: &RecordCreate) -> Result<RdRecordResponse> {
+pub fn create(pool: &DbPool, body: &RecordCreate, batch_no: Option<String>, notes: Option<String>) -> Result<RdRecordResponse> {
     let mut conn = pool.get()?;
     let tx = conn.transaction()?;
     tx.execute(
-        "INSERT INTO rd_work_records (project_id, method_id, user_name, quantity, recorded_at, group_id, division_id, status)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '待取样')",
-        rusqlite::params!(body.project_id, body.method_id, &body.user_name, body.quantity, &body.recorded_at, body.group_id, body.division_id),
+        "INSERT INTO rd_work_records (project_id, method_id, user_name, quantity, recorded_at, group_id, division_id, batch_no, notes, status)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, '待取样')",
+        rusqlite::params!(body.project_id, body.method_id, &body.user_name, body.quantity, &body.recorded_at, body.group_id, body.division_id, batch_no, notes),
     )?;
     let id = tx.last_insert_rowid();
     // 查询完整记录信息用于审计详情

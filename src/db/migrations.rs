@@ -420,5 +420,86 @@ pub fn run(conn: &rusqlite::Connection) -> Result<()> {
     // v0.4.26: sample_info_records 加 extra_fields 列（存储自定义字段的 JSON）
     conn.execute("ALTER TABLE sample_info_records ADD COLUMN extra_fields TEXT DEFAULT '{}'", []).ok();
 
+    // ═══════════════════════════════════════════════════════════
+    // v0.4.27-A: 列可见性控制 + 用户系统 + 附件 + 研发送样扩展
+    // ═══════════════════════════════════════════════════════════
+
+    // 1. sample_info_columns 增加 type_key 列（自定义列绑定检测类型）
+    conn.execute("ALTER TABLE sample_info_columns ADD COLUMN type_key TEXT DEFAULT NULL", []).ok();
+
+    // 2. 列可见性桥接表
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sample_info_column_visibility (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            type_key    TEXT NOT NULL,
+            column_id   INTEGER NOT NULL REFERENCES sample_info_columns(id) ON DELETE CASCADE,
+            is_visible  INTEGER NOT NULL DEFAULT 1,
+            UNIQUE(type_key, column_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_scv_type ON sample_info_column_visibility(type_key);"
+    )?;
+
+    // 3. 用户表
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS users (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            username    TEXT NOT NULL UNIQUE,
+            password    TEXT NOT NULL,
+            division_id INTEGER REFERENCES divisions(id),
+            group_id    INTEGER REFERENCES project_groups(id),
+            is_admin    INTEGER NOT NULL DEFAULT 0,
+            is_active   INTEGER NOT NULL DEFAULT 1,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            updated_at  TEXT DEFAULT (datetime('now','localtime'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);"
+    )?;
+
+    // 4. 用户会话表
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS user_sessions (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token       TEXT NOT NULL UNIQUE,
+            expires_at  TEXT NOT NULL,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions(token);"
+    )?;
+
+    // 5. 附件表
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sample_info_attachments (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_id   INTEGER NOT NULL REFERENCES sample_info_records(id) ON DELETE CASCADE,
+            file_name   TEXT NOT NULL,
+            stored_name TEXT NOT NULL,
+            file_size   INTEGER NOT NULL,
+            file_type   TEXT NOT NULL,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_sia_record ON sample_info_attachments(record_id);"
+    )?;
+
+    // 6. rd_work_records 扩展
+    conn.execute("ALTER TABLE rd_work_records ADD COLUMN batch_no TEXT DEFAULT ''", []).ok();
+    conn.execute("ALTER TABLE rd_work_records ADD COLUMN notes TEXT DEFAULT ''", []).ok();
+
+    // 7. 种子数据：admin 用户（密码 admin123）
+    conn.execute_batch(
+        "INSERT OR IGNORE INTO users (username, password, is_admin, is_active)
+         VALUES ('admin', '$2b$12$LJ3m4ys3Lk0TSwHlvL.5M.YiN.YiZZaQr3bGPlcFn8Y5NJMmROhfS', 1, 1);"
+    )?;
+
+    // 8. 种子数据：为现有 4 个检测类型批量建立预置列可见性
+    conn.execute_batch(
+        "INSERT OR IGNORE INTO sample_info_column_visibility (type_key, column_id, is_visible)
+         SELECT t.type_key, c.id, 1
+         FROM sample_info_types t
+         CROSS JOIN sample_info_columns c
+         WHERE c.is_predefined = 1
+           AND t.type_key IN ('icp', 'thermal', 'mass', 'other');"
+    )?;
+
     Ok(())
 }

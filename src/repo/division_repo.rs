@@ -1,6 +1,7 @@
 use crate::db::DbPool;
 use crate::error::Result;
 use crate::models::division::{Division, DivisionCreate, DivisionResponse, DivisionUpdate};
+use crate::repo::audit_repo;
 
 /// 列出全部事业部，并聚合每个事业部下属实验室数量（lab_count）。
 /// `project_groups.division_id` 为 NULL 的实验室不计入任何事业部。
@@ -108,4 +109,48 @@ fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<Division> {
         rusqlite::Error::QueryReturnedNoRows => crate::error::AppError::NotFound("事业部不存在".into()),
         _ => e.into(),
     })
+}
+
+/// 清除事业部关联的所有实验室
+pub fn clear_labs(conn: &rusqlite::Connection, division_id: i64) -> Result<()> {
+    conn.execute(
+        "UPDATE project_groups SET division_id = NULL WHERE division_id = ?1",
+        [division_id],
+    )?;
+    Ok(())
+}
+
+/// 设置事业部关联的实验室列表
+pub fn set_division_labs(
+    pool: &DbPool,
+    division_id: i64,
+    group_ids: &[i64],
+    user_name: &str,
+) -> Result<()> {
+    let mut conn = pool.get()?;
+    let tx = conn.transaction()?;
+
+    // 1) 清除现有关联
+    clear_labs(&tx, division_id)?;
+
+    // 2) 设置新关联
+    for &gid in group_ids {
+        tx.execute(
+            "UPDATE project_groups SET division_id = ?1 WHERE id = ?2",
+            rusqlite::params![division_id, gid],
+        )?;
+    }
+
+    let division = get_by_id_on_conn(&tx, division_id)?;
+    let detail = format!(
+        "设置事业部「{}」关联 {} 个实验室",
+        division.name,
+        group_ids.len()
+    );
+    audit_repo::log_on_conn_with_module(
+        &tx, "update", "project_groups", None,
+        user_name, &detail, "shared",
+    )?;
+    tx.commit()?;
+    Ok(())
 }

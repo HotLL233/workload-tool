@@ -8,7 +8,7 @@ use crate::models::sample_info_type::{
     SampleInfoType, SampleInfoTypeCreate, SampleInfoTypeUpdate,
 };
 use crate::models::{ApiResponse};
-use crate::repo::sample_info_type_repo;
+use crate::repo::{sample_info_type_repo, sample_info_column_visibility_repo};
 
 pub fn router(pool: DbPool) -> Router {
     Router::new()
@@ -33,6 +33,9 @@ async fn create(
     Json(body): Json<SampleInfoTypeCreate>,
 ) -> Result<Json<ApiResponse<SampleInfoType>>> {
     let item = sample_info_type_repo::create(&pool, &body)?;
+    // 自动为新类型初始化所有预置列的可见性
+    let conn = pool.get()?;
+    sample_info_column_visibility_repo::init_for_type(&conn, &item.type_key)?;
     Ok(Json(ApiResponse::ok(item)))
 }
 

@@ -36,5 +36,7 @@ impl AppConfig {
     }
     pub fn db_path(&self) -> PathBuf { self.data_dir().join("workload.db") }
     pub fn backup_dir(&self) -> PathBuf { self.data_dir().join("backups") }
+    /// 附件存储目录（data/attachments/）
+    pub fn attachments_dir(&self) -> PathBuf { self.data_dir().join("attachments") }
 
 }

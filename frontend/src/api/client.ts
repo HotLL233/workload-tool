@@ -9,6 +9,8 @@ import type {
   SampleRecord,
   SampleInfoRecord,
   SampleInfoColumn,
+  SampleInfoColumnVisibility,
+  SampleInfoAttachment,
   SampleInfoType,
   SampleStats,
   AuditLog,
@@ -24,6 +26,11 @@ import type {
   HelpDocument,
   HelpArticle,
   Division,
+  User,
+  LoginRequest,
+  LoginResponse,
+  UserUpdate,
+  ColumnVisibilityItem,
   Sheet1Data,
   Sheet2Row,
   Sheet3Row,
@@ -41,10 +48,29 @@ const client = axios.create({ baseURL: '/api' });
 client.interceptors.response.use(
   (res) => res,
   (err) => {
+    // v0.4.27-A: 401 时清除登录态
+    if (err.response?.status === 401) {
+      localStorage.removeItem('workload_token');
+      localStorage.removeItem('workload_user');
+      localStorage.removeItem('workload_remember');
+      sessionStorage.removeItem('workload_token');
+      sessionStorage.removeItem('workload_user');
+    }
     const msg = err.response?.data?.message || '网络错误';
     return Promise.reject(new Error(msg));
   }
 );
+
+// v0.4.27-A: 请求拦截器 — 自动附加 JWT token
+client.interceptors.request.use((config) => {
+  const token =
+    localStorage.getItem('workload_token') ||
+    sessionStorage.getItem('workload_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // --- Groups ---
 export const getGroups = (): Promise<ApiResponse<ProjectGroup[]>> =>
@@ -439,11 +465,19 @@ export const exportSampleInfo = (params: { start?: string; end?: string }): Prom
     });
 
 // ========== v0.4.26: 列自定义 API ==========
-export const getSampleInfoColumns = (): Promise<ApiResponse<SampleInfoColumn[]>> =>
-  client.get('/sample-info/columns').then(r => r.data);
+export const getSampleInfoColumns = (typeKey?: string): Promise<ApiResponse<SampleInfoColumn[]>> =>
+  client.get('/sample-info/columns', { params: { type_key: typeKey || undefined } }).then(r => r.data);
 
-export const getActiveSampleInfoColumns = (): Promise<ApiResponse<SampleInfoColumn[]>> =>
-  client.get('/sample-info/columns/active').then(r => r.data);
+export const getActiveSampleInfoColumns = (typeKey?: string): Promise<ApiResponse<SampleInfoColumn[]>> =>
+  client.get('/sample-info/columns/active', { params: { type_key: typeKey || undefined } }).then(r => r.data);
+
+// v0.4.27-A: 管理页专用 — 列 + 可见性信息
+export const getSampleInfoColumnsManage = (typeKey: string): Promise<ApiResponse<Array<SampleInfoColumn & { is_visible_in_type: boolean }>>> =>
+  client.get('/sample-info/columns/manage', { params: { type_key: typeKey } }).then(r => r.data);
+
+// v0.4.27-A: 批量更新预置列可见性
+export const updateSampleInfoColumnVisibility = (data: { type_key: string; items: ColumnVisibilityItem[] }): Promise<ApiResponse<null>> =>
+  client.put('/sample-info/columns/visibility', data).then(r => r.data);
 
 export const createSampleInfoColumn = (data: {
   field_key: string;
@@ -477,5 +511,49 @@ export const deleteSampleInfoColumn = (id: number): Promise<ApiResponse<null>> =
 
 export const reorderSampleInfoColumns = (ids: { id: number; sort_order: number }[]): Promise<ApiResponse<SampleInfoColumn[]>> =>
   client.put('/sample-info/columns/sort', { ids }).then(r => r.data);
+
+// ========== v0.4.27-A: 附件 API ==========
+export const getSampleInfoAttachments = (recordId: number): Promise<ApiResponse<SampleInfoAttachment[]>> =>
+  client.get(`/sample-info/${recordId}/attachments`).then(r => r.data);
+
+export const uploadSampleInfoAttachment = (recordId: number, file: File): Promise<ApiResponse<SampleInfoAttachment>> => {
+  const fd = new FormData();
+  fd.append('file', file);
+  return client.post(`/sample-info/${recordId}/attachments`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data);
+};
+
+export const getSampleInfoAttachmentUrl = (attId: number): string =>
+  `/api/sample-info/attachments/${attId}/file`;
+
+export const deleteSampleInfoAttachment = (attId: number): Promise<ApiResponse<null>> =>
+  client.delete(`/sample-info/attachments/${attId}`).then(r => r.data);
+
+// ========== v0.4.27-A: 用户 API ==========
+export const userRegister = (data: { username: string; password: string; division_id?: number | null; group_id?: number | null }): Promise<ApiResponse<User>> =>
+  client.post('/users/register', data).then(r => r.data);
+
+export const userLogin = (data: LoginRequest): Promise<ApiResponse<LoginResponse>> =>
+  client.post('/users/login', data).then(r => r.data);
+
+export const userMe = (): Promise<ApiResponse<User>> =>
+  client.get('/users/me').then(r => r.data);
+
+export const userList = (): Promise<ApiResponse<User[]>> =>
+  client.get('/users').then(r => r.data);
+
+export const updateUser = (id: number, data: UserUpdate): Promise<ApiResponse<User>> =>
+  client.put(`/users/${id}`, data).then(r => r.data);
+
+export const deleteUser = (id: number): Promise<ApiResponse<null>> =>
+  client.delete(`/users/${id}`).then(r => r.data);
+
+export const userLogout = (): Promise<ApiResponse<null>> =>
+  client.post('/users/logout').then(r => r.data);
+
+// ========== v0.4.27-A: 部门关联实验室 ==========
+export const setDivisionLabs = (divisionId: number, groupIds: number[]): Promise<ApiResponse<null>> =>
+  client.put(`/divisions/${divisionId}/labs`, { group_ids: groupIds }).then(r => r.data);
 
 export default client;
