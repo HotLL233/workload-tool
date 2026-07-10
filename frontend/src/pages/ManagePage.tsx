@@ -24,7 +24,7 @@ import ViewWeekIcon from '@mui/icons-material/ViewWeek';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PeopleIcon from '@mui/icons-material/People';
-import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision, getSampleInfoColumns, createSampleInfoColumn, updateSampleInfoColumn, deleteSampleInfoColumn, reorderSampleInfoColumns, userList, userRegister, updateUser, deleteUser } from '../api/client';
+import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision, setDivisionLabs, getSampleInfoColumns, createSampleInfoColumn, updateSampleInfoColumn, deleteSampleInfoColumn, reorderSampleInfoColumns, userList, userRegister, updateUser, deleteUser } from '../api/client';
 import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord, Division, SampleInfoColumn, User, UserUpdate } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
 import InlineEditCard from '../components/InlineEditCard';
@@ -103,16 +103,24 @@ const ManagePage: React.FC = () => {
   const [divs, setDivs] = useState<Division[]>([]);
   const ldiv = useCallback(async () => { try { const r = await getDivisions(); if (r.code === 0 && r.data) setDivs(r.data); } catch {} }, []);
   const [divEditOpen, setDivEditOpen] = useState(false);
-  const [divForm, setDivForm] = useState({ id: 0, name: '', sort_order: 10, color: '#1976d2' });
+  const [divForm, setDivForm] = useState({ id: 0, name: '', sort_order: 10, color: '#1976d2', group_ids: [] as number[] });
   const hdiv = async () => {
     if (!divForm.name.trim()) { sm('请输入部门名称', true); return; }
     try {
       if (divForm.id > 0) {
         const r = await updateDivision(divForm.id, { name: divForm.name, sort_order: divForm.sort_order, color: divForm.color });
-        if (r.code === 0) { sm('更新成功'); ldiv(); setDivEditOpen(false); } else sm(r.message, true);
+        if (r.code === 0) {
+          // 保存关联实验室
+          await setDivisionLabs(divForm.id, divForm.group_ids);
+          sm('更新成功'); ldiv(); setDivEditOpen(false);
+        } else sm(r.message, true);
       } else {
         const r = await createDivision({ name: divForm.name, sort_order: divForm.sort_order, color: divForm.color });
-        if (r.code === 0) { sm('创建成功'); ldiv(); setDivEditOpen(false); } else sm(r.message, true);
+        if (r.code === 0 && r.data) {
+          // 保存关联实验室
+          await setDivisionLabs(r.data.id, divForm.group_ids);
+          sm('创建成功'); ldiv(); setDivEditOpen(false);
+        } else sm(r.message, true);
       }
     } catch { sm('操作失败', true); }
   };
@@ -414,7 +422,7 @@ const ManagePage: React.FC = () => {
 
   // v0.3.15: 初始加载时也加载方法类型，否则项目编辑对话框的"关联检测方法"按类型分组时 mts 为空
   useEffect(() => { setLd(true); Promise.all([lg(), lp(), lt(), lm(), lmt()]).finally(() => setLd(false)); }, [lg, lp, lt, lm, lmt]);
-  useEffect(() => { if (tb === 'audit') la(1); if (tb === 'backup') loadBk(); if (tb === 'methods') { lmt(); lm(); } if (tb === 'trash') loadTrash(); if (tb === 'help') { loadHelpDocs(); loadHelpArticles(); } if (tb === 'users') loadUsers(); }, [tb, la, lmt, lm, loadUsers]);
+  useEffect(() => { if (tb === 'audit') la(1); if (tb === 'backup') loadBk(); if (tb === 'methods') { lmt(); lm(); } if (tb === 'trash') loadTrash(); if (tb === 'help') { loadHelpDocs(); loadHelpArticles(); } if (tb === 'users') { userList().then(r => { if (r.code === 0 && r.data) setUsers(r.data); }).catch(() => {}); } }, [tb, la, lmt, lm, loadUsers]);
 
   // v0.4.23: 样品信息登记管理数据加载
   useEffect(() => {
@@ -681,7 +689,7 @@ const ManagePage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
           const maxSo = divs.length ? Math.max(...divs.map(d => d.sort_order)) : 0;
-          setDivForm({ id: 0, name: '', sort_order: maxSo + 1, color: '#1976d2' });
+          setDivForm({ id: 0, name: '', sort_order: maxSo + 1, color: '#1976d2', group_ids: [] });
           setDivEditOpen(true);
         }} size="small" sx={{ borderRadius: R, background: 'linear-gradient(135deg,#1976d2,#1565c0)', boxShadow: '0 4px 14px rgba(25,118,210,0.3)' }}>新建部门</Button>
       </Box>
@@ -701,7 +709,11 @@ const ManagePage: React.FC = () => {
                 <TableCell>{d.sort_order}</TableCell>
                 <TableCell>{d.lab_count ?? 0}</TableCell>
                 <TableCell align="right">
-                  <IconButton size="small" onClick={() => { setDivForm({ id: d.id, name: d.name, sort_order: d.sort_order, color: d.color || '#1976d2' }); setDivEditOpen(true); }} sx={{ color: '#f4511e' }}><EditIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" onClick={() => {
+                    const linkedGroupIds = gs.filter(g => g.division_id === d.id).map(g => g.id);
+                    setDivForm({ id: d.id, name: d.name, sort_order: d.sort_order, color: d.color || '#1976d2', group_ids: linkedGroupIds });
+                    setDivEditOpen(true);
+                  }} sx={{ color: '#f4511e' }}><EditIcon fontSize="small" /></IconButton>
                   <IconButton size="small" color="error" onClick={() => { setCa(() => async () => { const r = await deleteDivision(d.id); if (r.code === 0) { sm('删除成功'); ldiv(); lg(); } else sm(r.message, true); setCo(false); }); setCo(true); }}><DeleteIcon fontSize="small" /></IconButton>
                 </TableCell>
               </TableRow>)}
@@ -1700,6 +1712,14 @@ const ManagePage: React.FC = () => {
         <TextField label="部门名称" fullWidth value={divForm.name} onChange={e => setDivForm({ ...divForm, name: e.target.value })} sx={{ mt: 2, mb: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }} helperText="如: 液相、气相、理化、ICP、热分析、质谱、红外、其他" />
         <TextField label="排序" type="number" fullWidth value={divForm.sort_order} onChange={e => setDivForm({ ...divForm, sort_order: Number(e.target.value) || 0 })} sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
         <TextField label="颜色" fullWidth value={divForm.color} onChange={e => setDivForm({ ...divForm, color: e.target.value })} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} helperText="十六进制颜色，如 #1976d2（P2 预留）" />
+        <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, mt: 2 }}>关联实验室</Typography>
+        <Box sx={{ maxHeight: 150, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: R, p: 1, mb: 2 }}>
+          {gs.filter(g => g.name !== '研发项目').map(g => (
+            <FormControlLabel key={g.id}
+              control={<Checkbox checked={divForm.group_ids.includes(g.id)} onChange={e => setDivForm(p => ({ ...p, group_ids: e.target.checked ? [...p.group_ids, g.id] : p.group_ids.filter(id => id !== g.id) }))} />}
+              label={g.name} />
+          ))}
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={() => setDivEditOpen(false)} sx={{ borderRadius: R }}>取消</Button>

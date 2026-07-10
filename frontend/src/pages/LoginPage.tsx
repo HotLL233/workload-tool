@@ -43,7 +43,7 @@ const LoginPage: React.FC = () => {
   return (
     <Box sx={{
       display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f0c29, #1a1a3e, #24243e)',
+      background: 'linear-gradient(135deg, #f0f4f8, #e8f5e9)',
       m: -3, p: 0,
     }}>
       <Box sx={{
@@ -53,32 +53,31 @@ const LoginPage: React.FC = () => {
         {/* 左侧品牌区 */}
         <Box sx={{ textAlign: { xs: 'center', md: 'left' }, flexShrink: 0 }}>
           <Typography variant="h2" fontWeight={800} sx={{
-            color: '#ffffff', fontSize: '36px', letterSpacing: 2, mb: 1,
+            color: '#2e7d32', fontSize: '36px', letterSpacing: 2, mb: 1,
           }}>
             知微
           </Typography>
           <Box sx={{
-            width: 40, height: 2, bgcolor: '#f4511e', mb: 1.5,
+            width: 40, height: 2, bgcolor: '#2e7d32', mb: 1.5,
             mx: { xs: 'auto', md: 0 },
           }} />
           <Typography variant="body1" sx={{
-            color: 'rgba(255,255,255,0.55)', fontWeight: 400, mb: 1,
+            color: '#555', fontWeight: 400, mb: 1,
           }}>
             样品管理系统
           </Typography>
           <Typography variant="body2" sx={{
-            color: 'rgba(255,255,255,0.35)', fontWeight: 300, letterSpacing: 1,
+            color: '#999', fontWeight: 300, letterSpacing: 1,
           }}>
             精准 / 高效 / 可追溯
           </Typography>
         </Box>
 
-        {/* 右侧磨砂玻璃卡片 */}
+        {/* 右侧白色卡片 */}
         <Box sx={{
-          background: 'rgba(255,255,255,0.06)',
-          backdropFilter: 'blur(20px)',
+          background: '#ffffff',
           borderRadius: '16px',
-          border: '1px solid rgba(255,255,255,0.10)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
           maxWidth: 320, width: '100%', p: 4,
         }}>
           <TextField
@@ -92,17 +91,14 @@ const LoginPage: React.FC = () => {
               mb: 2,
               '& .MuiOutlinedInput-root': {
                 borderRadius: R,
-                background: 'rgba(255,255,255,0.05)',
-                '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' },
-                '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.25)' },
-                '&.Mui-focused fieldset': { borderColor: '#f4511e' },
-                '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(244,81,30,0.2)' },
+                '& fieldset': { borderColor: '#d0d0d0' },
+                '&:hover fieldset': { borderColor: '#2e7d32' },
+                '&.Mui-focused fieldset': { borderColor: '#2e7d32' },
+                '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(46,125,50,0.2)' },
               },
-              '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.6)' },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#f4511e' },
-              '& .MuiOutlinedInput-input': { color: '#ffffff' },
+              '& .MuiInputLabel-root': { color: '#888' },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#2e7d32' },
             }}
-            InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.6)' } }}
           />
           <TextField
             label="密码"
@@ -116,22 +112,19 @@ const LoginPage: React.FC = () => {
               mb: 1.5,
               '& .MuiOutlinedInput-root': {
                 borderRadius: R,
-                background: 'rgba(255,255,255,0.05)',
-                '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' },
-                '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.25)' },
-                '&.Mui-focused fieldset': { borderColor: '#f4511e' },
-                '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(244,81,30,0.2)' },
+                '& fieldset': { borderColor: '#d0d0d0' },
+                '&:hover fieldset': { borderColor: '#2e7d32' },
+                '&.Mui-focused fieldset': { borderColor: '#2e7d32' },
+                '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(46,125,50,0.2)' },
               },
-              '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.6)' },
-              '& .MuiInputLabel-root.Mui-focused': { color: '#f4511e' },
-              '& .MuiOutlinedInput-input': { color: '#ffffff' },
+              '& .MuiInputLabel-root': { color: '#888' },
+              '& .MuiInputLabel-root.Mui-focused': { color: '#2e7d32' },
             }}
-            InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.6)' } }}
           />
 
           <FormControlLabel
-            control={<Checkbox size="small" checked={remember} onChange={e => setRemember(e.target.checked)} sx={{ color: '#ffffff', '&.Mui-checked': { color: '#f4511e' } }} />}
-            label={<Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>记住密码</Typography>}
+            control={<Checkbox size="small" checked={remember} onChange={e => setRemember(e.target.checked)} sx={{ color: '#d0d0d0', '&.Mui-checked': { color: '#2e7d32' } }} />}
+            label={<Typography variant="body2" sx={{ color: '#888' }}>记住密码</Typography>}
             sx={{ mb: 2 }}
           />
 
@@ -141,7 +134,7 @@ const LoginPage: React.FC = () => {
             onClick={handleLogin}
             disabled={loading}
             sx={{
-              borderRadius: R, py: 1.2, mb: 1, textTransform: 'none', fontWeight: 600, fontSize: '1rem',
+              borderRadius: '12px', py: 1.2, mb: 1, textTransform: 'none', fontWeight: 600, fontSize: '1rem',
               bgcolor: '#f4511e', '&:hover': { bgcolor: '#e64a19', transform: 'translateY(-1px)', boxShadow: '0 6px 20px rgba(244,81,30,0.35)' },
               transition: 'all 0.2s',
             }}

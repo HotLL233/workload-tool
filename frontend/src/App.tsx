@@ -1,5 +1,6 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Box } from '@mui/material';
 import { UserProvider } from './UserContext';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
@@ -30,7 +31,7 @@ const NotFoundPage: React.FC = () => <div style={{ padding: '2rem', textAlign: '
 
 const App: React.FC = () => (<ErrorBoundary><UserProvider><Routes><Route element={<Layout />}>
   {/* 公开路由 */}
-  <Route path="/login" element={<LoginPage />} />
+  <Route path="/login" element={<Box sx={{ position: 'fixed', inset: 0, zIndex: 9999 }}><LoginPage /></Box>} />
 
   {/* 一级: 两大入口卡片 */}
   <Route path="/" element={<HomePage />} />

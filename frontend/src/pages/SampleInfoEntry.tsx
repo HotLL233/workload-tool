@@ -18,7 +18,7 @@ import {
   getSampleInfoRecords, createSampleInfo, updateSampleInfo, updateSampleInfoStatus,
   getSampleInfoTypes, getDivisions, getActiveSampleInfoColumns,
   getSampleInfoAttachments, uploadSampleInfoAttachment, getSampleInfoAttachmentUrl,
-  deleteSampleInfoAttachment,
+  deleteSampleInfoAttachment, batchGetSampleInfoAttachments,
 } from '../api/client';
 import type { SampleInfoRecord, SampleInfoType, Division, SampleInfoColumn, SampleInfoAttachment } from '../types';
 
@@ -88,6 +88,18 @@ const SampleInfoEntry: React.FC = () => {
   // v0.4.27-A: 附件
   const [attachments, setAttachments] = useState<Record<number, SampleInfoAttachment[]>>({});
   const [attLoading, setAttLoading] = useState<Record<number, boolean>>({});
+  // v0.4.30: 列表批量附件计数
+  const [attachmentsByRow, setAttachmentsByRow] = useState<Record<number, SampleInfoAttachment[]>>({});
+  useEffect(() => {
+    if (records.length > 0) {
+      const ids = records.map(r => r.id);
+      batchGetSampleInfoAttachments(ids).then(r => {
+        if (r.code === 0 && r.data) setAttachmentsByRow(r.data);
+      }).catch(() => {});
+    } else {
+      setAttachmentsByRow({});
+    }
+  }, [records]);
   const loadAttachments = useCallback(async (recordId: number) => {
     setAttLoading(p => ({ ...p, [recordId]: true }));
     try {
@@ -297,6 +309,8 @@ const SampleInfoEntry: React.FC = () => {
   const renderCellInput = (col: SampleInfoColumn, idx: number) => {
     const val = getRowValue(rows[idx], col.field_key);
     switch (col.data_type) {
+      case 'attachment':
+        return <Button size="small" startIcon={<AttachFileIcon />}>上传附件</Button>;
       case 'select':
         return (
           <FormControl fullWidth size="small">
@@ -352,6 +366,9 @@ const SampleInfoEntry: React.FC = () => {
 
   /** 根据 data_type 渲染只读显示值 */
   const renderCellValue = (col: SampleInfoColumn, rec: SampleInfoRecord) => {
+    if (col.data_type === 'attachment') {
+      return <Chip icon={<AttachFileIcon />} label={attachmentsByRow?.[rec.id]?.length || 0} size="small" />;
+    }
     let val: any;
     if (PREDEFINED_FIELDS.has(col.field_key)) {
       val = (rec as any)[col.field_key];
