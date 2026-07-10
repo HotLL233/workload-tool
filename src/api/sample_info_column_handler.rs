@@ -1,14 +1,16 @@
 use axum::{
     extract::{Path, Query, State},
+    http::HeaderMap,
     Json, Router,
 };
 use serde::Deserialize;
 use crate::db::DbPool;
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::models::sample_info_column::*;
 use crate::models::sample_info_column_visibility::{VisibilityUpdateRequest, VisibilityItem};
 use crate::models::ApiResponse;
 use crate::repo::{sample_info_column_repo, sample_info_column_visibility_repo};
+use crate::service::auth_service;
 use serde::Serialize;
 
 #[derive(Deserialize, Default)]
@@ -59,6 +61,20 @@ impl From<(SampleInfoColumn, bool)> for ColumnWithVisibility {
             is_visible_in_type: visible,
         }
     }
+}
+
+/// 从 HeaderMap 中提取 JWT claims 并校验管理员权限
+fn require_admin(headers: &HeaderMap) -> Result<auth_service::Claims> {
+    let token = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .ok_or_else(|| AppError::Validation("未提供登录凭证".into()))?;
+    let claims = auth_service::verify_token(token)?;
+    if !claims.is_admin {
+        return Err(AppError::Forbidden("需要管理员权限".into()));
+    }
+    Ok(claims)
 }
 
 pub fn router(pool: DbPool) -> Router {
@@ -117,7 +133,7 @@ async fn list_manage(
 ) -> Result<Json<ApiResponse<Vec<ColumnWithVisibility>>>> {
     let type_key = q.type_key.unwrap_or_default();
     if type_key.is_empty() {
-        return Err(crate::error::AppError::Validation("type_key 不能为空".into()));
+        return Err(AppError::Validation("type_key 不能为空".into()));
     }
     let items = sample_info_column_repo::list_all_with_visibility(&pool, &type_key)?;
     let result: Vec<ColumnWithVisibility> = items.into_iter().map(ColumnWithVisibility::from).collect();
@@ -127,41 +143,51 @@ async fn list_manage(
 /// PUT /api/sample-info/columns/visibility — 批量更新预置列可见性
 async fn update_visibility(
     State(pool): State<DbPool>,
+    headers: HeaderMap,
     Json(body): Json<VisibilityUpdateRequest>,
 ) -> Result<Json<ApiResponse<()>>> {
+    require_admin(&headers)?;
     sample_info_column_visibility_repo::batch_update(&pool, &body, "system")?;
     Ok(Json(ApiResponse::ok_msg("可见性更新成功")))
 }
 
 async fn create(
     State(pool): State<DbPool>,
+    headers: HeaderMap,
     Json(body): Json<ColumnCreate>,
 ) -> Result<Json<ApiResponse<SampleInfoColumn>>> {
+    require_admin(&headers)?;
     let item = sample_info_column_repo::create(&pool, &body)?;
     Ok(Json(ApiResponse::ok(item)))
 }
 
 async fn update(
     State(pool): State<DbPool>,
+    headers: HeaderMap,
     Path(id): Path<i64>,
     Json(body): Json<ColumnUpdate>,
 ) -> Result<Json<ApiResponse<SampleInfoColumn>>> {
+    require_admin(&headers)?;
     let item = sample_info_column_repo::update(&pool, id, &body)?;
     Ok(Json(ApiResponse::ok(item)))
 }
 
 async fn delete(
     State(pool): State<DbPool>,
+    headers: HeaderMap,
     Path(id): Path<i64>,
 ) -> Result<Json<ApiResponse<()>>> {
+    require_admin(&headers)?;
     sample_info_column_repo::soft_delete(&pool, id)?;
     Ok(Json(ApiResponse::ok_msg("删除成功")))
 }
 
 async fn reorder(
     State(pool): State<DbPool>,
+    headers: HeaderMap,
     Json(body): Json<ColumnReorder>,
 ) -> Result<Json<ApiResponse<Vec<SampleInfoColumn>>>> {
+    require_admin(&headers)?;
     let items = sample_info_column_repo::reorder(&pool, &body)?;
     Ok(Json(ApiResponse::ok(items)))
 }

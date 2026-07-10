@@ -19,6 +19,7 @@ import type {
   ProjectStats,
   TypeStats,
   InstrumentStats,
+  DivisionStats,
   BackupStatus,
   MethodType,
   ImportSummary,
@@ -41,6 +42,7 @@ import type {
   Sheet8Row,
   Sheet9Row,
   Sheet10Row,
+  Sheet11Row,
 } from '../types';
 
 const client = axios.create({ baseURL: '/api' });
@@ -196,6 +198,10 @@ export const getStatsByType = (params?: { start?: string; end?: string; group_id
 export const getStatsByInstrument = (params?: { start?: string; end?: string; group_id?: number }): Promise<ApiResponse<InstrumentStats[]>> =>
   client.get('/stats/by-instrument', { params }).then((r) => r.data);
 
+// v0.4.28: 事业部统计
+export const getStatsByDivision = (params?: { start?: string; end?: string; division_id?: number }): Promise<ApiResponse<DivisionStats[]>> =>
+  client.get('/stats/by-division', { params }).then((r) => r.data);
+
 // --- Export ---
 export const exportExcel = (params: { start?: string; end?: string; group_id?: number }): Promise<Blob> =>
   client.get('/export/excel', { params, responseType: 'blob' })
@@ -285,6 +291,10 @@ export const getPreviewSheet9 = (params: { start: string; end: string }): Promis
 
 export const getPreviewSheet10 = (params: { start: string; end: string }): Promise<ApiResponse<Sheet10Row[]>> =>
   client.get('/export/preview/sheet10', { params }).then((r) => r.data);
+
+// v0.4.28: 事业部预览
+export const getPreviewSheet11 = (params: { start: string; end: string }): Promise<ApiResponse<Sheet11Row[]>> =>
+  client.get('/export/preview/sheet11', { params }).then((r) => r.data);
 
 // ========== 研发送样 (rd) — 与分析检测完全独立存储，共用主数据 ==========
 
@@ -530,6 +540,12 @@ export const getSampleInfoAttachmentUrl = (attId: number): string =>
 export const deleteSampleInfoAttachment = (attId: number): Promise<ApiResponse<null>> =>
   client.delete(`/sample-info/attachments/${attId}`).then(r => r.data);
 
+// v0.4.28: 批量获取附件
+export const batchGetSampleInfoAttachments = (recordIds: number[]): Promise<ApiResponse<Record<number, SampleInfoAttachment[]>>> => {
+  if (recordIds.length === 0) return Promise.resolve({ code: 0, message: 'ok', data: {} } as any);
+  return client.get('/sample-info/attachments/batch', { params: { record_ids: recordIds.join(',') } }).then(r => r.data);
+};
+
 // ========== v0.4.27-A: 用户 API ==========
 export const userRegister = (data: { username: string; password: string; division_id?: number | null; group_id?: number | null }): Promise<ApiResponse<User>> =>
   client.post('/users/register', data).then(r => r.data);
@@ -551,6 +567,10 @@ export const deleteUser = (id: number): Promise<ApiResponse<null>> =>
 
 export const userLogout = (): Promise<ApiResponse<null>> =>
   client.post('/users/logout').then(r => r.data);
+
+// v0.4.28: 修改密码
+export const changePassword = (data: { old_password: string; new_password: string }): Promise<ApiResponse<null>> =>
+  client.put('/users/change-password', data).then(r => r.data);
 
 // ========== v0.4.27-A: 部门关联实验室 ==========
 export const setDivisionLabs = (divisionId: number, groupIds: number[]): Promise<ApiResponse<null>> =>

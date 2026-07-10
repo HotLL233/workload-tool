@@ -9,6 +9,7 @@ use serde::Deserialize;
 use crate::db::DbPool;
 use super::{export_data, export_write};
 use chrono::Datelike;
+use crate::service::stats_service;
 
 #[derive(Deserialize, utoipa::IntoParams)]
 pub struct ExportQuery {
@@ -185,15 +186,35 @@ async fn export_excel(
             Err(e) => return Err(format!("Sheet10查询: {}", e)),
         }
 
-        // ========== Sheet 11: 类型汇总表 ==========
-        match export_data::query_sheet11_data(&conn, start, end) {
-            Ok(data) => {
-                tracing::info!("Sheet 11 查询完成: {} 行", data.len());
-                let ws = wb.add_worksheet();
-                export_write::write_sheet11(ws, &data, &fmt).map_err(|e| format!("Sheet11: {}", e))?;
-                tracing::info!("Sheet 11 写入完成");
+        // ========== Sheet 11: 事业部汇总 (v0.4.28) ==========
+        {
+            let div_data = stats_service::by_division(&pool, start, end, None).map_err(|e| format!("事业部查询: {}", e))?;
+            tracing::info!("Sheet 11 事业部汇总: {} 行", div_data.len());
+            let ws = wb.add_worksheet();
+            ws.set_name("事业部汇总").map_err(|e| format!("Sheet11: {}", e))?;
+            ws.set_column_width(0, 16.0).map_err(|e| format!("Sheet11: {}", e))?;  // 事业部
+            ws.set_column_width(1, 10.0).map_err(|e| format!("Sheet11: {}", e))?;  // 实验室数
+            ws.set_column_width(2, 10.0).map_err(|e| format!("Sheet11: {}", e))?;  // 检测数量
+            ws.set_column_width(3, 10.0).map_err(|e| format!("Sheet11: {}", e))?;  // 记录数
+            ws.set_column_width(4, 10.0).map_err(|e| format!("Sheet11: {}", e))?;  // 系数分
+            for col in 0u16..=4u16 {
+                ws.set_column_format(col, &fmt.fd).map_err(|e| format!("Sheet11: {}", e))?;
             }
-            Err(e) => return Err(format!("Sheet11查询: {}", e)),
+            // 表头
+            let headers = ["事业部", "实验室数", "检测数量", "记录数", "系数分"];
+            for (i, h) in headers.iter().enumerate() {
+                ws.write_with_format(0, i as u16, *h, &fmt.fh).map_err(|e| format!("Sheet11: {}", e))?;
+            }
+            for (i, row) in div_data.iter().enumerate() {
+                let r = (i + 1) as u32;
+                ws.write_with_format(r, 0, row.division_name.as_str(), &fmt.fd).map_err(|e| format!("Sheet11: {}", e))?;
+                ws.write_with_format(r, 1, row.lab_count as f64, &fmt.fd).map_err(|e| format!("Sheet11: {}", e))?;
+                ws.write_with_format(r, 2, row.total_quantity as f64, &fmt.fd).map_err(|e| format!("Sheet11: {}", e))?;
+                ws.write_with_format(r, 3, row.record_count as f64, &fmt.fd).map_err(|e| format!("Sheet11: {}", e))?;
+                ws.write_with_format(r, 4, row.coefficient_score, &fmt.fd).map_err(|e| format!("Sheet11: {}", e))?;
+            }
+            ws.autofit();
+            tracing::info!("Sheet 11 事业部汇总写入完成");
         }
 
         // 保存到内存

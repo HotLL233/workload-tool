@@ -77,6 +77,7 @@ import {
   getPreviewSheet8,
   getPreviewSheet9,
   getPreviewSheet10,
+  getPreviewSheet11,
   getRecordUsers,
 } from "../api/client";
 import type {
@@ -97,6 +98,7 @@ import type {
   Sheet8Row,
   Sheet9Row,
   Sheet10Row,
+  Sheet11Row,
 } from "../types";
 
 dayjs.extend(isoWeek);
@@ -118,6 +120,7 @@ export type TabValue =
   | "week"
   | "month"
   | "user-log"
+  | "division"
   | "sheet1"
   | "sheet2"
   | "sheet3"
@@ -127,7 +130,8 @@ export type TabValue =
   | "sheet7"
   | "sheet8"
   | "sheet9"
-  | "sheet10";
+  | "sheet10"
+  | "sheet11";
 interface StatCardDef {
   key: TabValue;
   label: string;
@@ -171,6 +175,13 @@ const STAT_CARDS: StatCardDef[] = [
     icon: <HistoryIcon />,
     color: "#5d4037",
     desc: "逐条记录明细",
+  },
+  {
+    key: "division",
+    label: "事业部统计",
+    icon: <BusinessIcon />,
+    color: "#1565c0",
+    desc: "按事业部汇总统计",
   },
   {
     key: "sheet1",
@@ -285,6 +296,7 @@ const StatsPage: React.FC = () => {
   const [s8d, setS8d] = useState<Sheet8Row[]>([]);
   const [s9d, setS9d] = useState<Sheet9Row[]>([]);
   const [s10d, setS10d] = useState<Sheet10Row[]>([]);
+  const [s11d, setS11d] = useState<Sheet11Row[]>([]);  // v0.4.28: 事业部
   const [ul, setUl] = useState<WorkRecord[]>([]);
   const [ull, setUll] = useState(false);
   const [ulp, setUlp] = useState(1);
@@ -402,6 +414,9 @@ const StatsPage: React.FC = () => {
       } else if (ac === "sheet10") {
         const r = await getPreviewSheet10({ start: si, end: ei });
         if (r.code === 0) setS10d(r.data || []);
+      } else if (ac === "division" || ac === "sheet11") {
+        const r = await getPreviewSheet11({ start: si, end: ei });
+        if (r.code === 0) setS11d(r.data || []);
       }
     } catch {
       setEr("加载失败");
@@ -1847,6 +1862,47 @@ const StatsPage: React.FC = () => {
                       loading={ld}
                       getRowKey={(_, i) => i}
                       renderCell={(row, field) => {
+                        return (row as any)[field] ?? "-";
+                      }}
+                    />
+                  </Box>
+                );
+              })()}
+            {/* v0.4.28: 事业部统计 / Sheet 11 */}
+            {(ac === "division" || ac === "sheet11") &&
+              (() => {
+                const divisionRows = s11d || [];
+                return (
+                  <Box>
+                    <Box
+                      sx={{
+                        mb: 2,
+                        display: "flex",
+                        gap: 2,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary">
+                        共 {divisionRows.length} 个事业部
+                      </Typography>
+                    </Box>
+                    <PreviewTable<Sheet11Row>
+                      title="事业部汇总"
+                      columns={[
+                        { field: "division_name", headerName: "事业部", width: 180 },
+                        { field: "lab_count", headerName: "实验室数", width: 110, align: "right" },
+                        { field: "total_quantity", headerName: "检测数量", width: 110, align: "right" },
+                        { field: "record_count", headerName: "记录数", width: 110, align: "right" },
+                        { field: "coefficient_score", headerName: "系数分", width: 120, align: "right" },
+                      ]}
+                      data={divisionRows}
+                      loading={ld}
+                      getRowKey={(r) => r.division_name}
+                      renderCell={(row, field) => {
+                        if (field === "coefficient_score") {
+                          return (row.coefficient_score ?? 0).toFixed(1);
+                        }
                         return (row as any)[field] ?? "-";
                       }}
                     />

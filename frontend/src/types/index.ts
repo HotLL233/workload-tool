@@ -413,7 +413,7 @@ export interface SampleInfoColumn {
   id: number;
   field_key: string;
   label: string;
-  data_type: 'text' | 'number' | 'select' | 'date';
+  data_type: 'text' | 'number' | 'select' | 'date' | 'attachment';
   is_predefined: boolean;
   is_required: boolean;
   is_active: boolean;
@@ -478,6 +478,25 @@ export interface UserUpdate {
   group_id?: number | null;
   is_admin?: boolean;
   is_active?: boolean;
+}
+
+// v0.4.28: 事业部统计
+export interface DivisionStats {
+  division_id: number | null;
+  division_name: string;
+  total_quantity: number;
+  record_count: number;
+  coefficient_score: number;
+  lab_count: number;
+}
+
+// v0.4.28: 事业部导出预览
+export interface Sheet11Row {
+  division_name: string;
+  lab_count: number;
+  total_quantity: number;
+  record_count: number;
+  coefficient_score: number;
 }
 
 export interface ColumnVisibilityItem {

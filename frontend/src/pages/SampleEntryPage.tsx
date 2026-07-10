@@ -25,7 +25,7 @@ interface RowState {
   division_id: number | null;
   method_id: number | null;
   method_name: string;
-  method_type: string;
+  method_type: string;  // v0.4.28: 改为可编辑，级联过滤
   quantity: number;
   batch_no: string;
   notes: string;
@@ -142,15 +142,30 @@ const SampleEntryPage: React.FC = () => {
     return allMethods.filter(m => linkedIds.has(m.id));
   }, [projects, allMethods]);
 
-  // 项目选项
-  const projectOpts = useMemo(() => projects.map(p => ({ id: p.id, label: p.name })), [projects]);
+  // v0.4.28: 级联过滤辅助函数
+  // 根据项目获取可用类型列表
+  const getAvailableTypes = (projectId: number | null): string[] => {
+    if (!projectId) return [];
+    const proj = projects.find(p => p.id === projectId);
+    if (!proj) return [];
+    const types = new Set<string>();
+    linkedMethods
+      .filter(m => (proj.method_ids || []).includes(m.id))
+      .forEach(m => (m.type_names || []).forEach(t => types.add(t)));
+    return Array.from(types);
+  };
 
-  // 方法选项（所有关联方法）
-  const methodOpts = useMemo(() => linkedMethods.map(m => ({
-    id: m.id,
-    label: m.name,
-    type: (m.type_names || []).join(','),
-  })), [linkedMethods]);
+  // 根据项目和类型获取可用方法
+  const getAvailableMethods = (projectId: number | null, typeFilter: string): Method[] => {
+    if (!projectId) return [];
+    const proj = projects.find(p => p.id === projectId);
+    if (!proj) return [];
+    let methods = linkedMethods.filter(m => (proj.method_ids || []).includes(m.id));
+    if (typeFilter) {
+      methods = methods.filter(m => (m.type_names || []).includes(typeFilter));
+    }
+    return methods;
+  };
 
   const refreshRecords = useCallback(() => {
     setRecordsPage(0);
@@ -292,10 +307,10 @@ const SampleEntryPage: React.FC = () => {
       </Button>
     </Box>
 
-    {/* 多行表格 */}
+    {/* 多行表格 — v0.4.28: 级联选择 + 列宽优化 */}
     {rows.length > 0 && (
       <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', mb: 3, overflowX: 'auto' }}>
-        <Table size="small" sx={{ minWidth: 1200 }}>
+        <Table size="small" sx={{ minWidth: 900 }} stickyHeader>
           <TableHead>
             <TableRow sx={{ bgcolor: 'rgba(230,81,0,0.06)' }}>
               <TableCell padding="checkbox" sx={{ fontWeight: 700, fontSize: '0.8rem' }}>
@@ -310,85 +325,120 @@ const SampleEntryPage: React.FC = () => {
               <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>送样人</TableCell>
               <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>部门</TableCell>
               <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>实验室</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: 120 }}>项目</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: 120 }}>方法</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: 100 }}>类型</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 120 }}>项目</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 100 }}>类型</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 140 }}>方法</TableCell>
               <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 80 }}>数量</TableCell>
               <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>批号</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: 100 }}>注意事项</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 120 }}>注意事项</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.map((row, idx) => (
-              <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
+            {rows.map((row, idx) => {
+              const availableTypes = getAvailableTypes(row.project_id);
+              const availableMethods = getAvailableMethods(row.project_id, row.method_type);
+              return (
+              <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 }, height: 48 }}>
                 <TableCell padding="checkbox">
                   <Checkbox size="small" checked={row.checked} onChange={() => toggleCheck(row.id)} />
                 </TableCell>
                 <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>{idx + 1}</TableCell>
+                {/* 送样人(自填) */}
                 <TableCell sx={{ p: 0.5 }}>
                   <TextField size="small" value={row.user_name} onChange={e => updateRow(row.id, { user_name: e.target.value })}
-                    sx={{ width: 90, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                    sx={{ width: 80, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                     inputProps={{ style: { padding: '2px 6px' } }} />
                 </TableCell>
+                {/* 部门(自填) */}
                 <TableCell sx={{ p: 0.5 }}>
                   <TextField size="small" select value={row.division_id ?? ''}
                     onChange={e => updateRow(row.id, { division_id: e.target.value ? Number(e.target.value) : null })}
-                    sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                    sx={{ width: 90, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                     SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
                     <option value="">-</option>
                     {divs.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </TextField>
                 </TableCell>
+                {/* 实验室(显示) */}
                 <TableCell sx={{ fontSize: '0.8rem', fontWeight: 500 }}>{labName || '-'}</TableCell>
+                {/* 项目(Select↓) — 级联起点 */}
                 <TableCell sx={{ p: 0.5 }}>
                   <TextField size="small" select value={row.project_id ?? ''}
                     onChange={e => {
                       const pid = e.target.value ? Number(e.target.value) : null;
                       const proj = projects.find(p => p.id === pid);
-                      updateRow(row.id, { project_id: pid, project_name: proj?.name || '' });
+                      updateRow(row.id, {
+                        project_id: pid,
+                        project_name: proj?.name || '',
+                        method_type: '',  // 切换项目时重置类型和方法
+                        method_id: null,
+                        method_name: '',
+                      });
                     }}
-                    sx={{ width: 130, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                    sx={{ width: 120, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                     SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
                     <option value="">-</option>
                     {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </TextField>
                 </TableCell>
+                {/* 类型(Select↓) — 级联过滤 */}
+                <TableCell sx={{ p: 0.5 }}>
+                  <TextField size="small" select value={row.method_type}
+                    onChange={e => {
+                      const mt = e.target.value;
+                      updateRow(row.id, {
+                        method_type: mt,
+                        method_id: null,  // 切换类型时重置方法
+                        method_name: '',
+                      });
+                    }}
+                    sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                    SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}
+                    disabled={!row.project_id}>
+                    <option value="">-</option>
+                    {availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                  </TextField>
+                </TableCell>
+                {/* 方法(Select↓) — 级联过滤 */}
                 <TableCell sx={{ p: 0.5 }}>
                   <TextField size="small" select value={row.method_id ?? ''}
                     onChange={e => {
                       const mid = e.target.value ? Number(e.target.value) : null;
-                      const meth = linkedMethods.find(m => m.id === mid);
+                      const meth = availableMethods.find(m => m.id === mid);
                       updateRow(row.id, {
                         method_id: mid,
                         method_name: meth?.name || '',
-                        method_type: (meth?.type_names || []).join(', '),
                       });
                     }}
-                    sx={{ width: 130, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
-                    SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
+                    sx={{ width: 140, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                    SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}
+                    disabled={!row.project_id}>
                     <option value="">-</option>
-                    {linkedMethods.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    {availableMethods.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </TextField>
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem' }}>{row.method_type || '-'}</TableCell>
+                {/* 数量 */}
                 <TableCell sx={{ p: 0.5 }}>
                   <TextField type="number" size="small" value={row.quantity}
                     onChange={e => updateRow(row.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
                     sx={{ width: 65, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                     inputProps={{ min: 1, style: { padding: '2px 6px', textAlign: 'center' } }} />
                 </TableCell>
+                {/* 批号 */}
                 <TableCell sx={{ p: 0.5 }}>
                   <TextField size="small" value={row.batch_no} onChange={e => updateRow(row.id, { batch_no: e.target.value })}
-                    sx={{ width: 90, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                    sx={{ width: 80, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                     inputProps={{ style: { padding: '2px 6px' } }} />
                 </TableCell>
+                {/* 注意事项 */}
                 <TableCell sx={{ p: 0.5 }}>
                   <TextField size="small" value={row.notes} onChange={e => updateRow(row.id, { notes: e.target.value })}
                     sx={{ minWidth: 100, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                     inputProps={{ style: { padding: '2px 6px' } }} />
                 </TableCell>
               </TableRow>
-            ))}
+            );
+            })}
           </TableBody>
         </Table>
       </TableContainer>

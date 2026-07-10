@@ -9,6 +9,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'; import CheckCircl
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Project, Method, MethodType, WorkRecord, ProjectGroup } from '../types';
 import { getProjects, getMethods, createRecord, getMethodTypes, getGroups, getRecords } from '../api/client';
+import { useUser } from '../UserContext';
 
 const R = '2px';
 
@@ -33,11 +34,19 @@ const EntryPage: React.FC = () => {
   const { groupId } = useParams<{ groupId: string }>();
   const gid = Number(groupId) || 0;
   const navigate = useNavigate();
+  const { user } = useUser();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [allMethods, setAllMethods] = useState<Method[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState('');
+  const [userName, setUserName] = useState(user?.username || '');
+
+  // v0.4.28: 首次加载且 userName 为空时自动填充当前用户名
+  useEffect(() => {
+    if (user?.username && !userName) {
+      setUserName(user.username);
+    }
+  }, [user, userName]);
   const [dateTime, setDateTime] = useState(() => {
     const now = new Date();
     const y = now.getFullYear();

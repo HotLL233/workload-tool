@@ -10,6 +10,7 @@ pub struct StatsQuery {
     pub end: Option<String>,
     pub group_by: Option<String>,  // day | week | month
     pub group_id: Option<i64>,
+    pub division_id: Option<i64>,  // v0.4.28: 事业部过滤
 }
 
 #[derive(Serialize)]
@@ -74,6 +75,7 @@ pub fn router(pool: DbPool) -> Router {
         .route("/api/stats/by-project", get(by_project))
         .route("/api/stats/by-type", get(by_type))
         .route("/api/stats/by-instrument", get(by_instrument))
+        .route("/api/stats/by-division", get(by_division))  // v0.4.28
         .with_state(pool)
 }
 
@@ -251,4 +253,33 @@ async fn by_instrument(State(pool): State<DbPool>, Query(q): Query<StatsQuery>) 
         coefficient_score: row.get::<_, f64>(5).unwrap_or(0.0),
     }))?;
     Ok(Json(ApiResponse::ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)))
+}
+
+/// v0.4.28: 按事业部统计
+#[derive(Serialize)]
+pub struct DivisionStats {
+    pub division_id: Option<i64>,
+    pub division_name: String,
+    pub total_quantity: i64,
+    pub record_count: i64,
+    pub coefficient_score: f64,
+    pub lab_count: i64,
+}
+
+async fn by_division(
+    State(pool): State<DbPool>,
+    Query(q): Query<StatsQuery>,
+) -> Result<Json<ApiResponse<Vec<DivisionStats>>>> {
+    let start = q.start.as_deref().unwrap_or("2000-01-01");
+    let end = q.end.as_deref().unwrap_or("2099-12-31");
+    let summaries = crate::service::stats_service::by_division(&pool, start, end, q.division_id)?;
+    let result: Vec<DivisionStats> = summaries.into_iter().map(|s| DivisionStats {
+        division_id: s.division_id,
+        division_name: s.division_name,
+        total_quantity: s.total_quantity,
+        record_count: s.record_count,
+        coefficient_score: s.coefficient_score,
+        lab_count: s.lab_count,
+    }).collect();
+    Ok(Json(ApiResponse::ok(result)))
 }

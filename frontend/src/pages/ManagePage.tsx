@@ -20,6 +20,9 @@ import BackupIcon from '@mui/icons-material/Backup';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import BusinessIcon from '@mui/icons-material/Business';
+import ViewWeekIcon from '@mui/icons-material/ViewWeek';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision, getSampleInfoColumns, createSampleInfoColumn, updateSampleInfoColumn, deleteSampleInfoColumn, reorderSampleInfoColumns } from '../api/client';
 import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord, Division, SampleInfoColumn } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -215,12 +218,12 @@ const ManagePage: React.FC = () => {
   const [siColumns, setSiColumns] = useState<SampleInfoColumn[]>([]);
   const [siColTypeKey, setSiColTypeKey] = useState<string>('');
   const loadSiColumns = useCallback(async (typeKey?: string) => {
-    const tk = typeKey || siColTypeKey;
+    // v0.4.28: always load all columns, not type-specific
     try {
-      const r = await getSampleInfoColumns(tk || undefined);
+      const r = await getSampleInfoColumns();
       if (r.code === 0 && r.data) setSiColumns(r.data);
     } catch {}
-  }, [siColTypeKey]);
+  }, []);
   const [colEditOpen, setColEditOpen] = useState(false);
   const [colEditItem, setColEditItem] = useState<SampleInfoColumn | null>(null);
   const [colForm, setColForm] = useState({
@@ -232,6 +235,8 @@ const ManagePage: React.FC = () => {
   // 记录行内编辑
   const [siEditId, setSiEditId] = useState<number | null>(null);
   const [siEditForm, setSiEditForm] = useState<Record<string, string>>({});
+  // v0.4.28: sampleinfo 子卡片导航
+  const [siSubTab, setSiSubTab] = useState<string | null>(null);
   const openSiEdit = (rec: SampleInfoRecord) => {
     setSiEditId(rec.id);
     setSiEditForm({
@@ -1054,6 +1059,35 @@ const ManagePage: React.FC = () => {
           sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}>导出 Excel</Button>
       </Box>
 
+      {/* v0.4.28: 二级子卡片导航 */}
+      {!siSubTab && (
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 2, mb: 3 }}>
+          {[
+            { key: 'types', label: '① 检测类型', desc: '管理检测类型', icon: <ScienceIcon sx={{ fontSize: 36, color: '#2e7d32' }} />, color: '#2e7d32' },
+            { key: 'records', label: '② 记录查询', desc: '查询/编辑记录', icon: <ListAltIcon sx={{ fontSize: 36, color: '#1976d2' }} />, color: '#1976d2' },
+            { key: 'columns', label: '③ 自定义列', desc: '配置字段列', icon: <ViewWeekIcon sx={{ fontSize: 36, color: '#f57c00' }} />, color: '#f57c00' },
+            { key: 'stats', label: '④ 独立统计', desc: '数据统计概览', icon: <AssessmentIcon sx={{ fontSize: 36, color: '#7b1fa2' }} />, color: '#7b1fa2' },
+          ].map(sc => (
+            <Paper key={sc.key} elevation={0} onClick={() => setSiSubTab(sc.key)}
+              sx={{ p: 2.5, borderRadius: R, cursor: 'pointer', border: '1px solid rgba(0,0,0,0.08)',
+                transition: 'all 0.2s', textAlign: 'center',
+                '&:hover': { borderColor: sc.color, boxShadow: '0 4px 20px rgba(0,0,0,0.08)', transform: 'translateY(-2px)' } }}>
+              <Box sx={{ mb: 1 }}>{sc.icon}</Box>
+              <Typography variant="subtitle1" fontWeight={700}>{sc.label}</Typography>
+              <Typography variant="caption" color="text.secondary">{sc.desc}</Typography>
+            </Paper>
+          ))}
+        </Box>
+      )}
+      {siSubTab && (
+        <Box sx={{ mb: 2 }}>
+          <Button size="small" startIcon={<ArrowBackIcon />} onClick={() => setSiSubTab(null)}
+            sx={{ borderRadius: R, mb: 1 }}>返回样品登记管理</Button>
+        </Box>
+      )}
+
+      {/* ① 检测类型管理 */}
+
       {/* ① 检测类型 CRUD */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
@@ -1227,29 +1261,8 @@ const ManagePage: React.FC = () => {
         </Box>
         <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
           管理样品信息登记页面显示的列字段。预置字段不可删除，自定义字段可增删改。
-          选择检测类型后可针对该类型控制预置列的显示/隐藏。
+          v0.4.28: 列配置对所有检测类型统一生效。
         </Typography>
-        {/* v0.4.27-A: 检测类型选择器 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>检测类型</InputLabel>
-            <Select
-              value={siColTypeKey}
-              label="检测类型"
-              onChange={e => {
-                const tk = e.target.value;
-                setSiColTypeKey(tk);
-                if (tk) loadSiColumns(tk);
-              }}
-            >
-              <MenuItem value="">全部</MenuItem>
-              {siTypes.map(t => <MenuItem key={t.id} value={t.type_key}>{t.label}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <Typography variant="caption" color="text.secondary">
-            预置列在所有类型中共享，可针对每个类型控制是否显示。
-          </Typography>
-        </Box>
         {siColumns.length === 0 ? (
           <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>暂无列配置</Typography>
         ) : (
@@ -1323,6 +1336,7 @@ const ManagePage: React.FC = () => {
                 <MenuItem value="number">数字 (number)</MenuItem>
                 <MenuItem value="select">下拉 (select)</MenuItem>
                 <MenuItem value="date">日期 (date)</MenuItem>
+                <MenuItem value="attachment">附件 (attachment)</MenuItem>
               </Select>
             </FormControl>
             {colForm.data_type === 'select' && (

@@ -16,7 +16,6 @@ import SampleInfoHome from './pages/SampleInfoHome';
 import SampleInfoEntry from './pages/SampleInfoEntry';
 import SampleInfoStatsPage from './pages/SampleInfoStatsPage';
 import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
@@ -32,7 +31,6 @@ const NotFoundPage: React.FC = () => <div style={{ padding: '2rem', textAlign: '
 const App: React.FC = () => (<ErrorBoundary><UserProvider><Routes><Route element={<Layout />}>
   {/* 公开路由 */}
   <Route path="/login" element={<LoginPage />} />
-  <Route path="/register" element={<RegisterPage />} />
 
   {/* 一级: 两大入口卡片 */}
   <Route path="/" element={<HomePage />} />
@@ -53,7 +51,8 @@ const App: React.FC = () => (<ErrorBoundary><UserProvider><Routes><Route element
   <Route path="/entry/:groupId" element={<ProtectedRoute><EntryPage /></ProtectedRoute>} />
   <Route path="/stats" element={<ProtectedRoute><StatsPage /></ProtectedRoute>} />
   <Route path="/help" element={<HelpPage />} />
-  <Route path="/manage" element={<ProtectedRoute><ManagePage /></ProtectedRoute>} />
+  {/* v0.4.28: 管理页需要管理员权限 */}
+  <Route path="/manage" element={<ProtectedRoute requireAdmin><ManagePage /></ProtectedRoute>} />
 
   <Route path="/404" element={<NotFoundPage />} />
   <Route path="*" element={<Navigate to="/404" replace />} />

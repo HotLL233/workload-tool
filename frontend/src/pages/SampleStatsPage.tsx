@@ -127,7 +127,9 @@ export type TabValue =
   | "sheet7"
   | "sheet8"
   | "sheet9"
-  | "sheet10";
+  | "sheet10"
+  | "division"
+  | "sheet11";
 interface StatCardDef {
   key: TabValue;
   label: string;

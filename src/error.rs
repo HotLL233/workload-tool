@@ -16,6 +16,8 @@ pub enum AppError {
     Validation(String),                           // code 1001
     #[error("冲突: {0}")]
     Conflict(String),                             // code 1001
+    #[error("无权限: {0}")]
+    Forbidden(String),                            // code 1003
     #[error("内部错误: {0}")]
     Internal(String),                             // code 5000
 }
@@ -26,6 +28,7 @@ impl AppError {
         match self {
             AppError::Validation(_) | AppError::Conflict(_) => 1001,  // 参数/业务校验错误
             AppError::NotFound(_) => 2001,                              // 数据不存在
+            AppError::Forbidden(_) => 1003,                             // 无权限
             AppError::Database(_) | AppError::Pool(_) | AppError::Xlsx(_) => 2001,
             AppError::Internal(_) => 5000,                              // 服务器内部错误
         }
@@ -41,12 +44,16 @@ impl IntoResponse for AppError {
         if let AppError::Database(ref e) = self {
             tracing::error!(error_code = self.code(), detail = %e, "AppError::Database");
         }
+        if let AppError::Forbidden(ref msg) = self {
+            tracing::warn!(error_code = self.code(), detail = %msg, "AppError::Forbidden");
+        }
 
         let code = self.code();
         let message = match &self {
             AppError::NotFound(msg) => msg.clone(),
             AppError::Validation(msg) => msg.clone(),
             AppError::Conflict(msg) => msg.clone(),
+            AppError::Forbidden(msg) => msg.clone(),
             AppError::Database(e) => format!("数据库错误: {}", e),
             AppError::Pool(e) => format!("连接池错误: {}", e),
             AppError::Xlsx(e) => format!("Excel错误: {}", e),

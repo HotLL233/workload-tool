@@ -92,6 +92,17 @@ fn find_by_id_on_conn(conn: &rusqlite::Connection, att_id: i64) -> Result<Sample
     })
 }
 
+/// v0.4.28: 获取某条记录的下一个附件序号
+pub fn next_seq_for_record(pool: &DbPool, record_id: i64) -> Result<i64> {
+    let conn = pool.get()?;
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM sample_info_attachments WHERE record_id = ?1",
+        [record_id],
+        |row| row.get(0),
+    )?;
+    Ok(count + 1)
+}
+
 /// 删除附件（同时返回文件名以便删除物理文件）
 pub fn delete(pool: &DbPool, att_id: i64, user_name: &str) -> Result<SampleInfoAttachment> {
     let mut conn = pool.get()?;

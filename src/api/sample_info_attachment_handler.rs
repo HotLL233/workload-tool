@@ -11,7 +11,6 @@ use crate::models::sample_info_attachment::SampleInfoAttachment;
 use crate::models::ApiResponse;
 use crate::repo::sample_info_attachment_repo;
 use std::sync::Arc;
-use uuid::Uuid;
 
 pub fn router(pool: DbPool) -> Router {
     let config = Arc::new(AppConfig::load());
@@ -19,6 +18,10 @@ pub fn router(pool: DbPool) -> Router {
         .route(
             "/api/sample-info/:id/attachments",
             axum::routing::get(list_attachments).post(upload_attachment),
+        )
+        .route(
+            "/api/sample-info/attachments/batch",
+            axum::routing::get(batch_attachments),
         )
         .route(
             "/api/sample-info/attachments/:att_id/file",
@@ -79,12 +82,14 @@ async fn upload_attachment(
         return Err(AppError::Validation("未选择文件".into()));
     }
 
-    // 生成唯一存储文件名
+    // v0.4.28: 生成唯一存储文件名 seq_{序号}_{ID}_{时间戳}_{原名}
     let ext = std::path::Path::new(&file_name)
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("bin");
-    let stored_name = format!("{}_{}.{}", Uuid::new_v4(), Uuid::new_v4().simple(), ext);
+    let seq = sample_info_attachment_repo::next_seq_for_record(&pool, record_id)?;
+    let now = chrono::Local::now().format("%Y%m%d%H%M%S");
+    let stored_name = format!("seq_{}_{}_{}_{}.{}", seq, record_id, now, file_name, ext);
 
     // 确保附件目录存在
     let attachments_dir = config.attachments_dir();
@@ -145,4 +150,28 @@ async fn delete_attachment(
     let _ = std::fs::remove_file(&file_path);
 
     Ok(Json(ApiResponse::ok_msg("删除成功")))
+}
+
+/// GET /api/sample-info/attachments/batch?record_ids=1,2,3 — 批量获取附件
+/// 返回 { [record_id]: SampleInfoAttachment[] }
+async fn batch_attachments(
+    State((pool, _config)): State<(DbPool, Arc<AppConfig>)>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<ApiResponse<std::collections::HashMap<i64, Vec<SampleInfoAttachment>>>>> {
+    let ids_str = params.get("record_ids").cloned().unwrap_or_default();
+    if ids_str.is_empty() {
+        return Ok(Json(ApiResponse::ok(std::collections::HashMap::new())));
+    }
+    let record_ids: Vec<i64> = ids_str
+        .split(',')
+        .filter_map(|s| s.trim().parse::<i64>().ok())
+        .collect();
+
+    let mut result = std::collections::HashMap::new();
+    for rid in record_ids {
+        if let Ok(atts) = sample_info_attachment_repo::list_by_record(&pool, rid) {
+            result.insert(rid, atts);
+        }
+    }
+    Ok(Json(ApiResponse::ok(result)))
 }

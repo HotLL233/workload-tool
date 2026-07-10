@@ -11,6 +11,7 @@ use crate::models::ApiResponse;
 use crate::repo::user_repo;
 use crate::service::auth_service;
 use std::sync::Arc;
+use serde::Deserialize;
 
 pub fn router(pool: DbPool, config: Arc<AppConfig>) -> Router {
     Router::new()
@@ -18,6 +19,7 @@ pub fn router(pool: DbPool, config: Arc<AppConfig>) -> Router {
         .route("/api/users/login", axum::routing::post(login))
         .route("/api/users/me", axum::routing::get(me))
         .route("/api/users/logout", axum::routing::post(logout))
+        .route("/api/users/change-password", axum::routing::put(change_password))
         .route("/api/users", axum::routing::get(list_users))
         .route(
             "/api/users/:id",
@@ -34,6 +36,14 @@ fn extract_claims_from_headers(headers: &HeaderMap) -> Result<auth_service::Clai
         .and_then(|v| v.strip_prefix("Bearer "))
         .ok_or_else(|| AppError::Validation("未提供登录凭证".into()))?;
     auth_service::verify_token(token)
+}
+
+/// 校验管理员权限
+fn require_admin(claims: &auth_service::Claims) -> Result<()> {
+    if !claims.is_admin {
+        return Err(AppError::Forbidden("需要管理员权限".into()));
+    }
+    Ok(())
 }
 
 /// POST /api/users/register — 注册用户
@@ -93,7 +103,8 @@ async fn list_users(
     State((pool, _config)): State<(DbPool, Arc<AppConfig>)>,
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<Vec<User>>>> {
-    let _claims = extract_claims_from_headers(&headers)?;
+    let claims = extract_claims_from_headers(&headers)?;
+    require_admin(&claims)?;
     let users = user_repo::list_all(&pool)?;
     Ok(Json(ApiResponse::ok(users)))
 }
@@ -106,6 +117,7 @@ async fn update_user(
     Json(body): Json<UserUpdate>,
 ) -> Result<Json<ApiResponse<User>>> {
     let claims = extract_claims_from_headers(&headers)?;
+    require_admin(&claims)?;
     let user = user_repo::update(&pool, id, &body, &claims.username)?;
     Ok(Json(ApiResponse::ok(user)))
 }
@@ -117,6 +129,7 @@ async fn delete_user(
     headers: HeaderMap,
 ) -> Result<Json<ApiResponse<()>>> {
     let claims = extract_claims_from_headers(&headers)?;
+    require_admin(&claims)?;
     user_repo::soft_delete(&pool, id, &claims.username)?;
     Ok(Json(ApiResponse::ok_msg("删除成功")))
 }
@@ -136,4 +149,45 @@ async fn logout(
         auth_service::logout(&pool, token)?;
     }
     Ok(Json(ApiResponse::ok_msg("已登出")))
+}
+
+/// PUT /api/users/change-password — 修改密码
+#[derive(Deserialize)]
+struct ChangePasswordRequest {
+    old_password: String,
+    new_password: String,
+}
+
+async fn change_password(
+    State((pool, _config)): State<(DbPool, Arc<AppConfig>)>,
+    headers: HeaderMap,
+    Json(body): Json<ChangePasswordRequest>,
+) -> Result<Json<ApiResponse<()>>> {
+    let claims = extract_claims_from_headers(&headers)?;
+
+    if body.old_password.is_empty() || body.new_password.is_empty() {
+        return Err(AppError::Validation("密码不能为空".into()));
+    }
+    if body.new_password.len() < 4 {
+        return Err(AppError::Validation("新密码至少4位".into()));
+    }
+
+    let user = user_repo::find_by_id(&pool, claims.sub)?
+        .ok_or_else(|| AppError::NotFound("用户不存在".into()))?;
+
+    // 验证旧密码
+    if !auth_service::verify_password(&body.old_password, &user.password) {
+        return Err(AppError::Validation("旧密码错误".into()));
+    }
+
+    // 哈希新密码
+    let new_hash = auth_service::hash_password(&body.new_password)?;
+
+    let conn = pool.get()?;
+    conn.execute(
+        "UPDATE users SET password = ?1, updated_at = datetime('now', 'localtime') WHERE id = ?2",
+        rusqlite::params![new_hash, claims.sub],
+    )?;
+
+    Ok(Json(ApiResponse::ok_msg("密码修改成功")))
 }
