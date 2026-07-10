@@ -388,10 +388,10 @@ export const updateHelpArticle = (id: number, data: { title?: string; is_visible
 export const getSampleInfoRecords = (params?: { detection_type?: string; type_key?: string; status?: string; user_name?: string; lab_name?: string; project_name?: string; start?: string; end?: string; page?: number; page_size?: number }): Promise<ApiResponse<PaginatedResponse<SampleInfoRecord>>> =>
   client.get('/sample-info', { params }).then(r => r.data);
 
-export const createSampleInfo = (data: { batch_no: string; user_name: string; lab_name: string; project_name: string; submitted_at?: string; detection_date?: string; main_components: string; detection_type: string; type_key: string; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
+export const createSampleInfo = (data: { batch_no: string; user_name: string; lab_name: string; project_name: string; submitted_at?: string; detection_date?: string; main_components: string; detection_type: string; type_key: string; division_id?: number | null; quantity?: number; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
   client.post('/sample-info', data).then(r => r.data);
 
-export const updateSampleInfo = (id: number, data: { status?: string; batch_no?: string; user_name?: string; lab_name?: string; project_name?: string; submitted_at?: string; detection_date?: string; main_components?: string; type_key?: string; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
+export const updateSampleInfo = (id: number, data: { status?: string; batch_no?: string; user_name?: string; lab_name?: string; project_name?: string; submitted_at?: string; detection_date?: string; main_components?: string; type_key?: string; division_id?: number | null; quantity?: number; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
   client.put(`/sample-info/${id}`, data).then(r => r.data);
 
 export const deleteSampleInfo = (id: number): Promise<ApiResponse<null>> =>

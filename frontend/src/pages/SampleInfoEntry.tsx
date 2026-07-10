@@ -3,15 +3,19 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, TextField, Button, Grid, IconButton,
   Chip, Snackbar, Alert, Select, MenuItem, FormControl, InputLabel,
-  TablePagination, Collapse, CircularProgress,
+  TablePagination, Collapse, CircularProgress, Checkbox, Table,
+  TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import {
-  getSampleInfoRecords, createSampleInfo, updateSampleInfo, updateSampleInfoStatus, getSampleInfoTypes,
+  getSampleInfoRecords, createSampleInfo, updateSampleInfo, updateSampleInfoStatus,
+  getSampleInfoTypes, getDivisions,
 } from '../api/client';
-import type { SampleInfoRecord, SampleInfoType } from '../types';
+import type { SampleInfoRecord, SampleInfoType, Division } from '../types';
 
 const R = '2px';
 const PAGE_SIZE = 20;
@@ -27,15 +31,29 @@ const NEXT_STATUS_LABEL: Record<string, string | null> = {
   '待检测': '取样', '待取样': '已取样', '已取样': '检测完成', '检测完成': null,
 };
 
-const DEFAULT_FORM = { batch_no: '', user_name: '', lab_name: '', project_name: '', main_components: '', notes: '' };
+interface RowData {
+  user_name: string;
+  division_id: number | '';
+  project_name: string;
+  quantity: number;
+  batch_no: string;
+  main_components: string;
+  notes: string;
+  checked: boolean;
+}
+
+const emptyRow = (): RowData => ({
+  user_name: '', division_id: '', project_name: '', quantity: 1,
+  batch_no: '', main_components: '', notes: '', checked: false,
+});
 
 const SampleInfoEntry: React.FC = () => {
   const [sp] = useSearchParams();
   const n = useNavigate();
   const dt = sp.get('type') || '';
 
-  // 表单
-  const [form, setForm] = useState(DEFAULT_FORM);
+  // 多行表格
+  const [rows, setRows] = useState<RowData[]>([emptyRow()]);
   const [submittedAt, setSubmittedAt] = useState(new Date().toISOString().slice(0, 16));
   const [snack, setSnack] = useState<{ open: boolean; msg: string; sev: 'success' | 'error' }>({ open: false, msg: '', sev: 'success' });
 
@@ -57,6 +75,12 @@ const SampleInfoEntry: React.FC = () => {
     getSampleInfoTypes().then(r => { if (r.code === 0 && r.data) setTypes(r.data); }).catch(() => {});
   }, []);
 
+  // 部门列表（用于行内 Select）
+  const [divs, setDivs] = useState<Division[]>([]);
+  useEffect(() => {
+    getDivisions().then(r => { if (r.code === 0 && r.data) setDivs(r.data); }).catch(() => {});
+  }, []);
+
   const load = useCallback(async () => {
     setLd(true);
     try {
@@ -76,29 +100,62 @@ const SampleInfoEntry: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  const setF = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
-
-  const doSubmit = async () => {
-    if (!form.batch_no || !form.user_name || !form.lab_name || !form.project_name || !form.main_components) {
-      setSnack({ open: true, msg: '请填写所有必填字段', sev: 'error' }); return;
-    }
-    // 检测时间由后端在「检测完成」时自动生成，前端不传
-    const typeLabel = types.find(t => t.type_key === dt)?.label || dt;
-    try {
-      await createSampleInfo({
-        batch_no: form.batch_no, user_name: form.user_name, lab_name: form.lab_name,
-        project_name: form.project_name, submitted_at: submittedAt,
-        main_components: form.main_components, detection_type: typeLabel,
-        type_key: dt, notes: form.notes || undefined,
-      });
-      setSnack({ open: true, msg: '登记成功', sev: 'success' });
-      setForm(DEFAULT_FORM);
-      setSubmittedAt(new Date().toISOString().slice(0, 16));
-      setPage(0); load();
-    } catch (e: any) { setSnack({ open: true, msg: e.message || '提交失败', sev: 'error' }); }
+  const updateRow = (idx: number, key: keyof RowData, val: any) => {
+    setRows(prev => prev.map((r, i) => i === idx ? { ...r, [key]: val } : r));
   };
 
-  const doReset = () => { setForm(DEFAULT_FORM); setSubmittedAt(new Date().toISOString().slice(0, 16)); };
+  const addRow = () => setRows(prev => [...prev, emptyRow()]);
+
+  const deleteSelected = () => {
+    const remaining = rows.filter(r => !r.checked);
+    if (remaining.length === 0) remaining.push(emptyRow());
+    setRows(remaining);
+  };
+
+  const resetRows = () => setRows([emptyRow()]);
+
+  const doSubmit = async () => {
+    const typeLabel = types.find(t => t.type_key === dt)?.label || dt;
+    let submitted = 0;
+    let errors: string[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row.batch_no.trim() || !row.main_components.trim()) {
+        errors.push(`第 ${i + 1} 行缺少批号或主要成分`);
+        continue;
+      }
+      try {
+        await createSampleInfo({
+          batch_no: row.batch_no,
+          user_name: row.user_name || '未知',
+          lab_name: '',
+          project_name: row.project_name || '',
+          submitted_at: submittedAt,
+          main_components: row.main_components,
+          detection_type: typeLabel,
+          type_key: dt,
+          division_id: row.division_id || null,
+          quantity: row.quantity || 1,
+          notes: row.notes || undefined,
+        });
+        submitted++;
+      } catch (e: any) {
+        errors.push(`第 ${i + 1} 行: ${e.message || '提交失败'}`);
+      }
+    }
+
+    if (submitted > 0) {
+      setSnack({ open: true, msg: `成功登记 ${submitted} 条` + (errors.length > 0 ? `，${errors.length} 条失败` : ''), sev: 'success' });
+      setRows([emptyRow()]);
+      setSubmittedAt(new Date().toISOString().slice(0, 16));
+      setPage(0); load();
+    } else if (errors.length > 0) {
+      setSnack({ open: true, msg: errors.join('；'), sev: 'error' });
+    } else {
+      setSnack({ open: true, msg: '请填写数据', sev: 'error' });
+    }
+  };
 
   const doExpand = (id: number) => setExpandedId(p => p === id ? null : id);
 
@@ -142,53 +199,162 @@ const SampleInfoEntry: React.FC = () => {
         <Typography variant="h5" fontWeight={700} color="#2e7d32">样品信息登记</Typography>
       </Box>
 
-      {/* === 部分 A：登记表单 === */}
+      {/* === 部分 A：登记表单（Excel 模板式多行录入） === */}
       <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: R, border: '2px solid #2e7d32', background: 'linear-gradient(145deg,#ffffff,#f1f8e9)' }}>
+        {/* 顶部公共信息 */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box>
             <Typography variant="h6" fontWeight={700} color="#2e7d32">样品信息登记</Typography>
             <Typography variant="body2" color="text.secondary">
-              检测类型: {dt || '全部'} · 序号: <Box component="span" sx={{ color: '#999' }}>自动</Box>
+              检测类型: {dt || '全部'} · 序号: <Box component="span" sx={{ color: '#999' }}>自动生成</Box>
             </Typography>
           </Box>
-          <Chip label="待检测" color="warning" size="small" />
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Chip label="待检测" color="warning" size="small" />
+          </Box>
         </Box>
 
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <TextField label="样品批号" required fullWidth size="small" value={form.batch_no} onChange={e => setF('batch_no', e.target.value)} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField label="实验室/车间" required fullWidth size="small" value={form.lab_name} onChange={e => setF('lab_name', e.target.value)} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField label="送样人" required fullWidth size="small" value={form.user_name} onChange={e => setF('user_name', e.target.value)} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField label="所属项目" required fullWidth size="small" value={form.project_name} onChange={e => setF('project_name', e.target.value)} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField label="送样时间" type="datetime-local" required fullWidth size="small" value={submittedAt} onChange={e => setSubmittedAt(e.target.value)} InputLabelProps={{ shrink: true }} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField label="序号" fullWidth size="small" value="自动生成" disabled InputProps={{ sx: { color: '#999' } }} />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField label="检测类型" fullWidth size="small" value={dt || '全部'} disabled InputProps={{ sx: { color: '#999' } }} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="样品主要成分" required fullWidth size="small" value={form.main_components} onChange={e => setF('main_components', e.target.value)} />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField label="注意事项" fullWidth size="small" multiline rows={2} value={form.notes} onChange={e => setF('notes', e.target.value)} />
-          </Grid>
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-              <Button variant="outlined" onClick={doReset} sx={{ borderRadius: R }}>重置</Button>
-              <Button variant="contained" onClick={doSubmit} sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}>提交登记</Button>
-            </Box>
-          </Grid>
-        </Grid>
+        {/* 公共时间 */}
+        <Box sx={{ mb: 2 }}>
+          <TextField
+            label="送样时间（整单公共）"
+            type="datetime-local"
+            required
+            size="small"
+            value={submittedAt}
+            onChange={e => setSubmittedAt(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ maxWidth: 280 }}
+          />
+        </Box>
+
+        {/* 多行表格 */}
+        <TableContainer component={Paper} sx={{ mb: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700, p: 1, width: 40 }}>
+                  <Checkbox
+                    size="small"
+                    checked={rows.length > 0 && rows.every(r => r.checked)}
+                    indeterminate={rows.some(r => r.checked) && !rows.every(r => r.checked)}
+                    onChange={() => {
+                      const all = rows.every(r => r.checked);
+                      setRows(prev => prev.map(r => ({ ...r, checked: !all })));
+                    }}
+                  />
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, p: 1, width: 50 }}>序号</TableCell>
+                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 90 }}>送样人</TableCell>
+                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 110 }}>所属部门</TableCell>
+                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 100 }}>所属项目</TableCell>
+                <TableCell sx={{ fontWeight: 700, p: 1, width: 80 }}>送样数量</TableCell>
+                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 130 }}>样品批号 *</TableCell>
+                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 140 }}>样品主要成分 *</TableCell>
+                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 120 }}>注意事项</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((row, idx) => (
+                <TableRow key={idx} hover selected={row.checked}>
+                  <TableCell sx={{ p: 0.5 }}>
+                    <Checkbox
+                      size="small"
+                      checked={row.checked}
+                      onChange={() => updateRow(idx, 'checked', !row.checked)}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ p: 0.5, fontSize: '0.8rem', color: '#999' }}>{idx + 1}</TableCell>
+                  <TableCell sx={{ p: 0.5 }}>
+                    <TextField
+                      size="small" fullWidth
+                      value={row.user_name}
+                      onChange={e => updateRow(idx, 'user_name', e.target.value)}
+                      placeholder="送样人"
+                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ p: 0.5 }}>
+                    <FormControl fullWidth size="small">
+                      <Select
+                        value={row.division_id}
+                        displayEmpty
+                        onChange={e => updateRow(idx, 'division_id', e.target.value)}
+                        sx={{ fontSize: '0.8rem' }}
+                      >
+                        <MenuItem value=""><em>请选择</em></MenuItem>
+                        {divs.map(d => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
+                      </Select>
+                    </FormControl>
+                  </TableCell>
+                  <TableCell sx={{ p: 0.5 }}>
+                    <TextField
+                      size="small" fullWidth
+                      value={row.project_name}
+                      onChange={e => updateRow(idx, 'project_name', e.target.value)}
+                      placeholder="项目"
+                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ p: 0.5 }}>
+                    <TextField
+                      size="small" type="number"
+                      value={row.quantity}
+                      onChange={e => updateRow(idx, 'quantity', Math.max(1, Number(e.target.value) || 1))}
+                      inputProps={{ min: 1 }}
+                      sx={{ width: 70, '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ p: 0.5 }}>
+                    <TextField
+                      size="small" fullWidth required
+                      value={row.batch_no}
+                      onChange={e => updateRow(idx, 'batch_no', e.target.value)}
+                      placeholder="批号 *"
+                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ p: 0.5 }}>
+                    <TextField
+                      size="small" fullWidth required
+                      value={row.main_components}
+                      onChange={e => updateRow(idx, 'main_components', e.target.value)}
+                      placeholder="主要成分 *"
+                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ p: 0.5 }}>
+                    <TextField
+                      size="small" fullWidth
+                      value={row.notes}
+                      onChange={e => updateRow(idx, 'notes', e.target.value)}
+                      placeholder="注意事项"
+                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* 操作按钮 */}
+        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ borderRadius: R }}>
+              添加行
+            </Button>
+            <Button variant="outlined" size="small" color="error" startIcon={<DeleteIcon />} onClick={deleteSelected} disabled={!rows.some(r => r.checked)} sx={{ borderRadius: R }}>
+              删除选中行
+            </Button>
+            <Button variant="outlined" size="small" onClick={resetRows} sx={{ borderRadius: R }}>
+              重置
+            </Button>
+          </Box>
+          <Button variant="contained" onClick={doSubmit} sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}>
+            提交登记（{rows.length} 行）
+          </Button>
+        </Box>
       </Paper>
 
       {/* === 部分 B：记录列表 === */}

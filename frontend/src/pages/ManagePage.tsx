@@ -50,7 +50,7 @@ const extractInstrumentFromMethodName = (methodName: string): string | null => {
 const TC = [
   { key: 'projects', label: '研发项目管理', icon: <ListAltIcon />, desc: '研发项目及关联实验室' },
   { key: 'groups', label: '实验室管理', icon: <FolderIcon />, desc: '新增编辑实验室映射录入选项卡' },
-  { key: 'divisions', label: '事业部管理', icon: <BusinessIcon />, desc: '管理事业部及下属实验室' },
+  { key: 'divisions', label: '部门管理', icon: <BusinessIcon />, desc: '管理部门及下属实验室' },
   { key: 'methods', label: '检测方法管理', icon: <ScienceIcon />, desc: '液相/气相/理化/ICP/热分析等检测方法' },
   { key: 'trash', label: '回收站', icon: <DeleteSweepIcon />, desc: '恢复已删除的记录' },
   { key: 'audit', label: '审计日志', icon: <ReceiptLongIcon />, desc: '操作记录追溯' },
@@ -100,7 +100,7 @@ const ManagePage: React.FC = () => {
   const [divEditOpen, setDivEditOpen] = useState(false);
   const [divForm, setDivForm] = useState({ id: 0, name: '', sort_order: 10, color: '#1976d2' });
   const hdiv = async () => {
-    if (!divForm.name.trim()) { sm('请输入事业部名称', true); return; }
+    if (!divForm.name.trim()) { sm('请输入部门名称', true); return; }
     try {
       if (divForm.id > 0) {
         const r = await updateDivision(divForm.id, { name: divForm.name, sort_order: divForm.sort_order, color: divForm.color });
@@ -473,15 +473,6 @@ const ManagePage: React.FC = () => {
                     key={n}
                     label={n}
                     size="small"
-                    onDelete={() => {
-                      const group = gs.find(g => g.name === n);
-                      if (group) {
-                        const newLabIds = (p.lab_ids || []).filter(id => id !== group.id);
-                        updateProject(p.id, { ...p, lab_ids: newLabIds }).then(r => {
-                          if (r.code === 0) { lp(); }
-                        });
-                      }
-                    }}
                     sx={{ borderRadius: '10px', height: 20, fontSize: '0.7rem', backgroundColor: 'var(--color-background-info, #e3f2fd)' }}
                   />
                 ))}
@@ -491,15 +482,6 @@ const ManagePage: React.FC = () => {
                     label={n}
                     size="small"
                     color="info"
-                    onDelete={() => {
-                      const method = ml.find(m => m.name === n);
-                      if (method) {
-                        const newMethodIds = (p.method_ids || []).filter(id => id !== method.id);
-                        updateProject(p.id, { ...p, method_ids: newMethodIds }).then(r => {
-                          if (r.code === 0) { lp(); }
-                        });
-                      }
-                    }}
                     sx={{ borderRadius: '10px', height: 20, fontSize: '0.7rem' }}
                   />
                 ))}
@@ -576,10 +558,10 @@ const ManagePage: React.FC = () => {
           const maxSo = divs.length ? Math.max(...divs.map(d => d.sort_order)) : 0;
           setDivForm({ id: 0, name: '', sort_order: maxSo + 1, color: '#1976d2' });
           setDivEditOpen(true);
-        }} size="small" sx={{ borderRadius: R, background: 'linear-gradient(135deg,#1976d2,#1565c0)', boxShadow: '0 4px 14px rgba(25,118,210,0.3)' }}>新建事业部</Button>
+        }} size="small" sx={{ borderRadius: R, background: 'linear-gradient(135deg,#1976d2,#1565c0)', boxShadow: '0 4px 14px rgba(25,118,210,0.3)' }}>新建部门</Button>
       </Box>
-      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>按检测技术维度（液相/气相/理化/ICP/热分析/质谱/红外/其他）归拢实验室；删除事业部仅解除实验室归属，不删除实验室。</Typography>
-      {divs.length === 0 ? <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>暂无事业部</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>按检测技术维度（液相/气相/理化/ICP/热分析/质谱/红外/其他）归拢实验室；删除部门仅解除实验室归属，不删除实验室。</Typography>
+      {divs.length === 0 ? <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>暂无部门</Typography>
         : <TableContainer component={Paper} sx={{ borderRadius: R, border: '1px solid rgba(0,0,0,0.06)' }}>
           <Table size="small">
             <TableHead><TableRow>
@@ -711,15 +693,6 @@ const ManagePage: React.FC = () => {
                     key={n}
                     label={n}
                     size="small"
-                    onDelete={() => {
-                      const type = mts.find(t => t.name === n);
-                      if (type) {
-                        const newTypeIds = (m.type_ids || []).filter(id => id !== type.id);
-                        updateMethod(m.id, { ...m, type_ids: newTypeIds }).then(r => {
-                          if (r.code === 0) { lm(); }
-                        });
-                      }
-                    }}
                     sx={{ borderRadius: '10px', height: 20, fontSize: '0.7rem', backgroundColor: 'var(--color-background-info, #e3f2fd)' }}
                   />
                 ))}
@@ -1060,9 +1033,35 @@ const ManagePage: React.FC = () => {
         </TableContainer>
       </Paper>
 
-      {/* ② 记录查询（全部维度筛选） */}
+      {/* ② 记录查询（卡片式统计 + 表格） */}
+      {/* 统计卡片 */}
+      <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)', background: 'linear-gradient(135deg,#f1f8e9,#ffffff)' }}>
+        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5, color: '#2e7d32' }}>记录统计概览</Typography>
+        {!siStats ? (
+          <Typography color="text.secondary">加载中…</Typography>
+        ) : (
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ textAlign: 'center', minWidth: 80, p: 1.5, bgcolor: '#fff', borderRadius: R, border: '1px solid #e0e0e0', flex: '1 0 auto' }}>
+              <Typography variant="caption" color="text.secondary">总记录数</Typography>
+              <Typography variant="h5" fontWeight={800} color="#2e7d32">{siStats.total}</Typography>
+            </Box>
+            {['待检测', '待取样', '已取样', '检测完成'].map(st => {
+              const stat = (siStats.by_status || []).find((s: any) => s.name === st);
+              const colors: Record<string, string> = { '待检测': '#ff9800', '待取样': '#2196f3', '已取样': '#4caf50', '检测完成': '#9e9e9e' };
+              return (
+                <Box key={st} sx={{ textAlign: 'center', minWidth: 80, p: 1.5, bgcolor: '#fff', borderRadius: R, border: '1px solid #e0e0e0', flex: '1 0 auto' }}>
+                  <Typography variant="caption" color="text.secondary">{st}</Typography>
+                  <Typography variant="h5" fontWeight={800} sx={{ color: colors[st] }}>{stat ? stat.count : 0}</Typography>
+                </Box>
+              );
+            })}
+          </Box>
+        )}
+      </Paper>
+
+      {/* 筛选区 */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>② 记录查询（共 {siTotal} 条）</Typography>
+        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>记录查询（共 {siTotal} 条）</Typography>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2, alignItems: 'center' }}>
           <TextField label="起始日期" type="date" size="small" value={siFilters.start} onChange={e => setSiFilters(p => ({ ...p, start: e.target.value }))} InputLabelProps={{ shrink: true }} />
           <TextField label="截止日期" type="date" size="small" value={siFilters.end} onChange={e => setSiFilters(p => ({ ...p, end: e.target.value }))} InputLabelProps={{ shrink: true }} />
@@ -1331,10 +1330,10 @@ const ManagePage: React.FC = () => {
           <TextField label="实验室名称" fullWidth value={groupEditItem.name} onChange={e => setGroupEditItem({ ...groupEditItem, name: e.target.value })} sx={{ mt: 2, mb: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
           <TextField label="排序" type="number" fullWidth value={groupEditItem.sort_order} onChange={e => setGroupEditItem({ ...groupEditItem, sort_order: Number(e.target.value) || 0 })} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
           <FormControl fullWidth sx={{ mt: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }}>
-            <InputLabel>所属事业部</InputLabel>
+            <InputLabel>所属部门</InputLabel>
             <Select
               value={groupEditItem.division_id ?? ''}
-              label="所属事业部"
+              label="所属部门"
               onChange={e => setGroupEditItem({ ...groupEditItem!, division_id: e.target.value === '' ? null : Number(e.target.value) })}
             >
               <MenuItem value="">未分配</MenuItem>
@@ -1369,9 +1368,9 @@ const ManagePage: React.FC = () => {
 
     {/* v0.4.24: 事业部编辑弹窗 */}
     <Dialog open={divEditOpen} onClose={() => setDivEditOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: R } }}>
-      <DialogTitle sx={{ fontWeight: 700 }}>{divForm.id > 0 ? '编辑事业部' : '新建事业部'}</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 700 }}>{divForm.id > 0 ? '编辑部门' : '新建部门'}</DialogTitle>
       <DialogContent>
-        <TextField label="事业部名称" fullWidth value={divForm.name} onChange={e => setDivForm({ ...divForm, name: e.target.value })} sx={{ mt: 2, mb: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }} helperText="如: 液相、气相、理化、ICP、热分析、质谱、红外、其他" />
+        <TextField label="部门名称" fullWidth value={divForm.name} onChange={e => setDivForm({ ...divForm, name: e.target.value })} sx={{ mt: 2, mb: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }} helperText="如: 液相、气相、理化、ICP、热分析、质谱、红外、其他" />
         <TextField label="排序" type="number" fullWidth value={divForm.sort_order} onChange={e => setDivForm({ ...divForm, sort_order: Number(e.target.value) || 0 })} sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
         <TextField label="颜色" fullWidth value={divForm.color} onChange={e => setDivForm({ ...divForm, color: e.target.value })} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} helperText="十六进制颜色，如 #1976d2（P2 预留）" />
       </DialogContent>
@@ -1677,6 +1676,7 @@ const ManagePage: React.FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>实验室名称</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>关联部门</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>关联项目</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>排序</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>关联分组</TableCell>
@@ -1705,6 +1705,9 @@ const ManagePage: React.FC = () => {
                       }}
                       sx={{ '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                     />
+                  </TableCell>
+                  <TableCell>
+                    {g.division_name || '未分配'}
                   </TableCell>
                   <TableCell>
                     {g.project_names || '无'}

@@ -370,5 +370,11 @@ pub fn run(conn: &rusqlite::Connection) -> Result<()> {
     conn.execute("ALTER TABLE rd_work_records ADD COLUMN division_id INTEGER REFERENCES divisions(id)", []).ok();
     conn.execute("CREATE INDEX IF NOT EXISTS idx_rd_records_division ON rd_work_records(division_id)", []).ok();
 
+    // ═══════════════════════════════════════════════════════════
+    // v0.4.25: sample_info_records 增加 division_id 和 quantity
+    // ═══════════════════════════════════════════════════════════
+    conn.execute("ALTER TABLE sample_info_records ADD COLUMN division_id INTEGER DEFAULT NULL", []).ok();
+    conn.execute("ALTER TABLE sample_info_records ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1", []).ok();
+
     Ok(())
 }

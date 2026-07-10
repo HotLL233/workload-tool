@@ -54,6 +54,11 @@ fn build_where(q: &SampleInfoQuery) -> (String, Vec<String>) {
             params.push(p.clone());
         }
     }
+    if let Some(d) = q.division_id {
+        let i = params.len() + 1;
+        clauses.push(format!("division_id=?{}", i));
+        params.push(d.to_string());
+    }
     if let Some(s) = &q.start {
         let i = params.len() + 1;
         clauses.push(format!("submitted_at>=?{}", i));
@@ -77,7 +82,8 @@ pub fn list(pool: &DbPool, q: &SampleInfoQuery) -> Result<(Vec<SampleInfoRespons
 
     let sql = format!(
         "SELECT id, status, seq_no, batch_no, user_name, lab_name, project_name, \
-         submitted_at, detection_date, main_components, detection_type, type_key, notes, \
+         submitted_at, detection_date, main_components, detection_type, type_key, \
+         division_id, quantity, notes, \
          created_at, updated_at, deleted_at \
          FROM sample_info_records WHERE {} ORDER BY created_at DESC \
          LIMIT {} OFFSET {}",
@@ -103,10 +109,12 @@ pub fn list(pool: &DbPool, q: &SampleInfoQuery) -> Result<(Vec<SampleInfoRespons
                 main_components: row.get(9)?,
                 detection_type: row.get(10)?,
                 type_key: row.get(11)?,
-                notes: row.get::<_, String>(12).unwrap_or_default(),
-                created_at: row.get(13)?,
-                updated_at: row.get(14)?,
-                deleted_at: row.get(15)?,
+                division_id: row.get(12)?,
+                quantity: row.get(13)?,
+                notes: row.get::<_, String>(14).unwrap_or_default(),
+                created_at: row.get(15)?,
+                updated_at: row.get(16)?,
+                deleted_at: row.get(17)?,
             })
         },
     )?;
@@ -131,7 +139,8 @@ pub fn list(pool: &DbPool, q: &SampleInfoQuery) -> Result<(Vec<SampleInfoRespons
 fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<SampleInfoRecord> {
     conn.query_row(
         "SELECT id, status, seq_no, batch_no, user_name, lab_name, project_name, \
-         submitted_at, detection_date, main_components, detection_type, type_key, notes, \
+         submitted_at, detection_date, main_components, detection_type, type_key, \
+         division_id, quantity, notes, \
          created_at, updated_at, deleted_at \
          FROM sample_info_records WHERE id=?1",
         [id],
@@ -149,10 +158,12 @@ fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<SampleInfoR
                 main_components: row.get(9)?,
                 detection_type: row.get(10)?,
                 type_key: row.get(11)?,
-                notes: row.get::<_, String>(12).unwrap_or_default(),
-                created_at: row.get(13)?,
-                updated_at: row.get(14)?,
-                deleted_at: row.get(15)?,
+                division_id: row.get(12)?,
+                quantity: row.get(13)?,
+                notes: row.get::<_, String>(14).unwrap_or_default(),
+                created_at: row.get(15)?,
+                updated_at: row.get(16)?,
+                deleted_at: row.get(17)?,
             })
         },
     )
@@ -191,8 +202,9 @@ pub fn create(pool: &DbPool, data: &SampleInfoCreate) -> Result<SampleInfoRespon
     tx.execute(
         "INSERT INTO sample_info_records \
          (status, seq_no, batch_no, user_name, lab_name, project_name, submitted_at, \
-          detection_date, main_components, detection_type, type_key, notes) \
-         VALUES ('待检测', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+          detection_date, main_components, detection_type, type_key, \
+          division_id, quantity, notes) \
+         VALUES ('待检测', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
         rusqlite::params![
             seq_no,
             &data.batch_no,
@@ -204,6 +216,8 @@ pub fn create(pool: &DbPool, data: &SampleInfoCreate) -> Result<SampleInfoRespon
             &data.main_components,
             &data.detection_type,
             &data.type_key,
+            &data.division_id,
+            &data.quantity,
             &notes,
         ],
     )?;
@@ -317,6 +331,26 @@ pub fn update(
             tx.execute(
                 "UPDATE sample_info_records SET main_components=?1, updated_at=datetime('now','localtime') WHERE id=?2",
                 rusqlite::params![mc, id],
+            )?;
+            changed = true;
+        }
+    }
+    if let Some(ref d) = data.division_id {
+        if Some(*d) != existing.division_id {
+            changes.push(format!("所属部门 {:?} → {:?}", existing.division_id, d));
+            tx.execute(
+                "UPDATE sample_info_records SET division_id=?1, updated_at=datetime('now','localtime') WHERE id=?2",
+                rusqlite::params![d, id],
+            )?;
+            changed = true;
+        }
+    }
+    if let Some(ref q) = data.quantity {
+        if *q != existing.quantity {
+            changes.push(format!("送样数量 {} → {}", existing.quantity, q));
+            tx.execute(
+                "UPDATE sample_info_records SET quantity=?1, updated_at=datetime('now','localtime') WHERE id=?2",
+                rusqlite::params![q, id],
             )?;
             changed = true;
         }

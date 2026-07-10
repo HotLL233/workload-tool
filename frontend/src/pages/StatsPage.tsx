@@ -1873,7 +1873,7 @@ const StatsPage: React.FC = () => {
           backgroundClip: "text",
         }}
       >
-        统计分析
+        分析检测统计
       </Typography>
       {sm && (
         <StatsCards

@@ -399,6 +399,9 @@ export interface SampleInfoRecord {
   main_components: string;
   detection_type: string;
   type_key: string;
+  division_id?: number | null;
+  division_name?: string | null;
+  quantity: number;
   notes: string;
   created_at: string;
   updated_at?: string;
