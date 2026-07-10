@@ -1,67 +1,102 @@
 classDiagram
-    class AppConfig {
-        +u16 server_port
-        +String db_dir
-        +String log_level
-        +Option~String~ log_file
-        +String admin_user
-        +String admin_pass
-        +bool backup_enabled
-        +u64 backup_interval_hours
-        +u64 max_backup_count
-        +load() AppConfig
-        +save()
-        +db_path() PathBuf
-        +backup_dir() PathBuf
-        +data_dir()$ PathBuf
+    class SampleInfoColumn {
+        +i64 id
+        +String column_key
+        +String display_name
+        +String column_type
+        +i64 sort_order
+        +bool is_active
+        +String created_at
+        +String updated_at
     }
 
-    class HealthResponse {
+    class SampleInfoColumnCreate {
+        +String column_key
+        +String display_name
+        +String column_type
+        +i64 sort_order
+    }
+
+    class SampleInfoColumnUpdate {
+        +Option~String~ display_name
+        +Option~String~ column_type
+        +Option~i64~ sort_order
+        +Option~bool~ is_active
+    }
+
+    class SampleInfoRecord_v0426 {
+        +i64 id
         +String status
-        +String version
+        +i64 seq_no
+        +String batch_no
+        +String user_name
+        +String lab_name
+        +String project_name
+        +String submitted_at
+        +String detection_date
+        +String main_components
+        +String detection_type
+        +String type_key
+        +Option~i64~ division_id
+        +i64 quantity
+        +String notes
+        +Option~String~ extra_fields
+        +String created_at
+        +Option~String~ updated_at
+        +Option~String~ deleted_at
     }
 
-    class PdfRenderWindows {
-        <<module cfg(windows)>>
-        +pdf_to_pngs(Path, Path) Result~u32, String~
+    class SampleInfoResponse_v0426 {
+        +i64 id
+        +String status
+        +i64 seq_no
+        +String batch_no
+        +String user_name
+        +String lab_name
+        +String project_name
+        +String submitted_at
+        +String detection_date
+        +String main_components
+        +String detection_type
+        +String type_key
+        +Option~i64~ division_id
+        +i64 quantity
+        +String notes
+        +Option~String~ extra_fields
+        +String created_at
+        +Option~String~ updated_at
     }
 
-    class PdfRenderLinux {
-        <<module cfg(not(windows))>>
-        +pdf_to_pngs(Path, Path) Result~u32, String~
+    class SampleInfoCreate_v0426 {
+        +String batch_no
+        +String user_name
+        +String lab_name
+        +String project_name
+        +Option~String~ submitted_at
+        +Option~String~ detection_date
+        +String main_components
+        +String detection_type
+        +String type_key
+        +Option~i64~ division_id
+        +i64 quantity
+        +Option~String~ notes
+        +Option~String~ extra_fields
     }
 
-    class HelpHandler {
-        +router(DbPool) Router
-        -upload(State, Multipart) Result
-        -list(State, Query) Result
-        -update(State, Path, Json) Result
-        -delete(State, Path) Result
-        -get_file(State, Path, Query) Result
-        -get_page(State, Path) Result
+    class SampleInfoUpdate_v0426 {
+        +Option~String~ status
+        +Option~String~ batch_no
+        +Option~String~ user_name
+        +Option~String~ lab_name
+        +Option~String~ project_name
+        +Option~String~ submitted_at
+        +Option~String~ detection_date
+        +Option~String~ main_components
+        +Option~i64~ division_id
+        +Option~i64~ quantity
+        +Option~String~ notes
+        +Option~String~ extra_fields
     }
 
-    class TrayModule {
-        <<cfg(windows) only>>
-        +run_tray(u16)
-    }
-
-    class PortUtil {
-        <<cross-platform>>
-        +is_port_in_use(u16) bool
-    }
-
-    class ApiRouter {
-        +api_router(DbPool, Arc~AppConfig~) Router
-        +health()$ Json~HealthResponse~
-    }
-
-    HelpHandler ..> PdfRenderWindows : "cfg(windows)"
-    HelpHandler ..> PdfRenderLinux : "cfg(not(windows))"
-    ApiRouter --> HelpHandler : "merge router"
-    ApiRouter --> AppConfig : "config"
-    
-    note for PdfRenderLinux "返回 Err(\"unsupported on this platform\")"
-    note for TrayModule "仅 Windows 编译\nLinux/Docker 走 console 模式"
-    note for PortUtil "从 tray.rs 提取\nTcpListener::bind 检测"
-    note for HealthResponse "GET /api/health\n新增 Docker 健康检查"
+    SampleInfoColumnCreate --|> SampleInfoColumn : creates
+    SampleInfoColumnUpdate --|> SampleInfoColumn : updates

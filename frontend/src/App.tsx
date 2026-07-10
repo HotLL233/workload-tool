@@ -14,6 +14,7 @@ import ManagePage from './pages/ManagePage';
 import HelpPage from './pages/HelpPage';
 import SampleInfoHome from './pages/SampleInfoHome';
 import SampleInfoEntry from './pages/SampleInfoEntry';
+import SampleInfoStatsPage from './pages/SampleInfoStatsPage';
 
 interface ErrorBoundaryState { hasError: boolean; error: Error | null; }
 class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
@@ -35,9 +36,10 @@ const App: React.FC = () => (<ErrorBoundary><UserProvider><Routes><Route element
   <Route path="/sample/stats" element={<SampleStatsPage />} />
   <Route path="/sample-records" element={<RdRecordsPage />} />
 
-  {/* 样品信息登记分支: /sample-info → home → entry/records */}
+  {/* 样品信息登记分支: /sample-info → home → entry/records/stats */}
   <Route path="/sample-info" element={<SampleInfoHome />} />
   <Route path="/sample-info/entry" element={<SampleInfoEntry />} />
+  <Route path="/sample-info/stats" element={<SampleInfoStatsPage />} />
 
   {/* 工作量分支: /workload → portal → entry/stats/manage */}
   <Route path="/workload" element={<WorkloadPortal />} />

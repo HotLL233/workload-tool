@@ -20,8 +20,8 @@ import BackupIcon from '@mui/icons-material/Backup';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import BusinessIcon from '@mui/icons-material/Business';
-import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision } from '../api/client';
-import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord, Division } from '../types';
+import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision, getSampleInfoColumns, createSampleInfoColumn, updateSampleInfoColumn, deleteSampleInfoColumn, reorderSampleInfoColumns } from '../api/client';
+import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord, Division, SampleInfoColumn } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
 import InlineEditCard from '../components/InlineEditCard';
 
@@ -211,6 +211,19 @@ const ManagePage: React.FC = () => {
     } catch { setSiStats(null); }
   }, [siFilters]);
 
+  // ④ 自定义列配置
+  const [siColumns, setSiColumns] = useState<SampleInfoColumn[]>([]);
+  const loadSiColumns = useCallback(async () => {
+    try { const r = await getSampleInfoColumns(); if (r.code === 0 && r.data) setSiColumns(r.data); } catch {}
+  }, []);
+  const [colEditOpen, setColEditOpen] = useState(false);
+  const [colEditItem, setColEditItem] = useState<SampleInfoColumn | null>(null);
+  const [colForm, setColForm] = useState({
+    field_key: '', label: '', data_type: 'text' as string,
+    width: 100, sort_order: 0, options: '',
+    is_required: false, show_in_list: true, show_in_export: true, show_in_form: true,
+  });
+
   // 记录行内编辑
   const [siEditId, setSiEditId] = useState<number | null>(null);
   const [siEditForm, setSiEditForm] = useState<Record<string, string>>({});
@@ -286,6 +299,66 @@ const ManagePage: React.FC = () => {
     setCo(true);
   };
 
+  // ④ 列配置 CRUD
+  const saveCol = async () => {
+    if (!colForm.field_key.trim() || !colForm.label.trim()) { sm('字段标识与显示名称不能为空', true); return; }
+    try {
+      if (colEditItem) {
+        const r = await updateSampleInfoColumn(colEditItem.id, {
+          label: colForm.label, data_type: colForm.data_type,
+          is_active: colEditItem.is_active, is_required: colForm.is_required,
+          width: colForm.width, options: colForm.options || undefined,
+          show_in_list: colForm.show_in_list, show_in_export: colForm.show_in_export,
+          show_in_form: colForm.show_in_form,
+        });
+        if (r.code === 0) { sm('更新成功'); setColEditOpen(false); setColEditItem(null); loadSiColumns(); }
+        else sm(r.message, true);
+      } else {
+        const r = await createSampleInfoColumn({
+          field_key: colForm.field_key, label: colForm.label, data_type: colForm.data_type,
+          width: colForm.width, sort_order: colForm.sort_order,
+          options: colForm.options || undefined,
+          is_required: colForm.is_required, show_in_list: colForm.show_in_list,
+          show_in_export: colForm.show_in_export, show_in_form: colForm.show_in_form,
+        });
+        if (r.code === 0) { sm('创建成功'); loadSiColumns(); }
+        else sm(r.message, true);
+      }
+    } catch (e: any) { sm(e.message || '操作失败', true); }
+  };
+  const editCol = (col: SampleInfoColumn) => {
+    setColEditItem(col);
+    setColForm({
+      field_key: col.field_key, label: col.label, data_type: col.data_type,
+      width: col.width, sort_order: col.sort_order, options: col.options || '',
+      is_required: col.is_required, show_in_list: col.show_in_list,
+      show_in_export: col.show_in_export, show_in_form: col.show_in_form,
+    });
+    setColEditOpen(true);
+  };
+  const delCol = (id: number) => {
+    setCa(() => async () => {
+      const r = await deleteSampleInfoColumn(id);
+      if (r.code === 0) { sm('删除成功'); loadSiColumns(); }
+      else sm(r.message, true);
+      setCo(false);
+    });
+    setCo(true);
+  };
+  const moveCol = async (idx: number, dir: -1 | 1) => {
+    const newCols = [...siColumns];
+    const target = idx + dir;
+    if (target < 0 || target >= newCols.length) return;
+    [newCols[idx], newCols[target]] = [newCols[target], newCols[idx]];
+    // 重新计算 sort_order
+    const ids = newCols.map((c, i) => ({ id: c.id, sort_order: i }));
+    try {
+      const r = await reorderSampleInfoColumns(ids);
+      if (r.code === 0) { loadSiColumns(); }
+      else sm(r.message, true);
+    } catch (e: any) { sm(e.message || '排序失败', true); }
+  };
+
 
   // v0.3.15: 初始加载时也加载方法类型，否则项目编辑对话框的"关联检测方法"按类型分组时 mts 为空
   useEffect(() => { setLd(true); Promise.all([lg(), lp(), lt(), lm(), lmt()]).finally(() => setLd(false)); }, [lg, lp, lt, lm, lmt]);
@@ -293,8 +366,8 @@ const ManagePage: React.FC = () => {
 
   // v0.4.23: 样品信息登记管理数据加载
   useEffect(() => {
-    if (tb === 'sampleinfo') { loadSiTypes(); loadSiRecords(); loadSiStats(); }
-  }, [tb, loadSiTypes, loadSiRecords, loadSiStats]);
+    if (tb === 'sampleinfo') { loadSiTypes(); loadSiRecords(); loadSiStats(); loadSiColumns(); }
+  }, [tb, loadSiTypes, loadSiRecords, loadSiStats, loadSiColumns]);
 
   // v0.3.18: 项目保存
   const handleSaveProject = async (project: Project) => {
@@ -1159,6 +1232,127 @@ const ManagePage: React.FC = () => {
           </Box>
         )}
       </Paper>
+
+      {/* ④ 自定义列配置 */}
+      <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+          <Typography variant="subtitle2" fontWeight={700} color="#2e7d32">④ 自定义列配置</Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => {
+              setColEditItem(null);
+              const maxSo = siColumns.length ? Math.max(...siColumns.map(c => c.sort_order)) : 0;
+              setColForm({ field_key: '', label: '', data_type: 'text', width: 100, sort_order: maxSo + 1, options: '', is_required: false, show_in_list: true, show_in_export: true, show_in_form: true });
+              setColEditOpen(true);
+            }} sx={{ borderRadius: R, borderColor: '#2e7d32', color: '#2e7d32' }}>新增列</Button>
+          </Box>
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+          管理样品信息登记页面显示的列字段。预置字段不可删除，自定义字段可增删改。
+        </Typography>
+        {siColumns.length === 0 ? (
+          <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>暂无列配置</Typography>
+        ) : (
+          <TableContainer component={Paper} sx={tSx}>
+            <Table size="small">
+              <TableHead><TableRow>
+                <TableCell sx={{ fontWeight: 600, width: 60 }}>排序</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>字段标识</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>显示名称</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>类型</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>必填</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>启用</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>表单</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>列表</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>导出</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>宽度</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 600 }}>操作</TableCell>
+              </TableRow></TableHead>
+              <TableBody>
+                {siColumns.map((col, idx) => (
+                  <TableRow key={col.id} hover>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <IconButton size="small" disabled={idx === 0} onClick={() => moveCol(idx, -1)} sx={{ p: 0.3 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700 }}>▲</Typography>
+                        </IconButton>
+                        <IconButton size="small" disabled={idx === siColumns.length - 1} onClick={() => moveCol(idx, 1)} sx={{ p: 0.3 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700 }}>▼</Typography>
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{col.field_key}</TableCell>
+                    <TableCell>{col.label}</TableCell>
+                    <TableCell><Chip label={col.data_type} size="small" variant="outlined" sx={{ borderRadius: R, fontSize: '0.7rem' }} /></TableCell>
+                    <TableCell><Chip label={col.is_required ? '是' : '否'} size="small" color={col.is_required ? 'warning' : 'default'} variant="outlined" sx={{ borderRadius: R }} /></TableCell>
+                    <TableCell><Chip label={col.is_active ? '启用' : '停用'} size="small" color={col.is_active ? 'success' : 'default'} sx={{ borderRadius: R }} /></TableCell>
+                    <TableCell><Chip label={col.show_in_form ? '显示' : '隐藏'} size="small" variant="outlined" sx={{ borderRadius: R }} /></TableCell>
+                    <TableCell><Chip label={col.show_in_list ? '显示' : '隐藏'} size="small" variant="outlined" sx={{ borderRadius: R }} /></TableCell>
+                    <TableCell><Chip label={col.show_in_export ? '显示' : '隐藏'} size="small" variant="outlined" sx={{ borderRadius: R }} /></TableCell>
+                    <TableCell>{col.width}</TableCell>
+                    <TableCell align="right">
+                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                        <IconButton size="small" onClick={() => editCol(col)} sx={{ color: '#2e7d32' }}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => delCol(col.id)} disabled={col.is_predefined}><DeleteIcon fontSize="small" /></IconButton>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
+
+      {/* 列编辑弹窗 */}
+      <Dialog open={colEditOpen} onClose={() => { setColEditOpen(false); setColEditItem(null); }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: R } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>{colEditItem ? '编辑列' : '新增自定义列'}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {!colEditItem && (
+              <TextField label="字段标识 (field_key)" fullWidth size="small" value={colForm.field_key}
+                onChange={e => setColForm(p => ({ ...p, field_key: e.target.value }))}
+                helperText="英文字母或下划线，创建后不可修改" />
+            )}
+            <TextField label="显示名称 (label)" fullWidth size="small" value={colForm.label}
+              onChange={e => setColForm(p => ({ ...p, label: e.target.value }))} />
+            <FormControl size="small" fullWidth>
+              <InputLabel>数据类型</InputLabel>
+              <Select value={colForm.data_type} label="数据类型" onChange={e => setColForm(p => ({ ...p, data_type: e.target.value }))}>
+                <MenuItem value="text">文本 (text)</MenuItem>
+                <MenuItem value="number">数字 (number)</MenuItem>
+                <MenuItem value="select">下拉 (select)</MenuItem>
+                <MenuItem value="date">日期 (date)</MenuItem>
+              </Select>
+            </FormControl>
+            {colForm.data_type === 'select' && (
+              <TextField label="下拉选项（逗号分隔）" fullWidth size="small" value={colForm.options}
+                onChange={e => setColForm(p => ({ ...p, options: e.target.value }))} />
+            )}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField label="宽度" type="number" size="small" value={colForm.width}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setColForm(p => ({ ...p, width: v || 100 }));
+                }} sx={{ width: 100 }} />
+              <TextField label="排序" type="number" size="small" value={colForm.sort_order}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setColForm(p => ({ ...p, sort_order: v || 0 }));
+                }} sx={{ width: 100 }} />
+            </Box>
+            <FormControlLabel control={<Switch checked={colForm.is_required} onChange={e => setColForm(p => ({ ...p, is_required: e.target.checked }))} />} label="必填" />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <FormControlLabel control={<Switch checked={colForm.show_in_form} onChange={e => setColForm(p => ({ ...p, show_in_form: e.target.checked }))} />} label="在表单中显示" />
+              <FormControlLabel control={<Switch checked={colForm.show_in_list} onChange={e => setColForm(p => ({ ...p, show_in_list: e.target.checked }))} />} label="在列表中显示" />
+              <FormControlLabel control={<Switch checked={colForm.show_in_export} onChange={e => setColForm(p => ({ ...p, show_in_export: e.target.checked }))} />} label="在导出中显示" />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setColEditOpen(false); setColEditItem(null); }} sx={{ borderRadius: R }}>取消</Button>
+          <Button onClick={saveCol} variant="contained" sx={{ borderRadius: R, bgcolor: '#2e7d32' }}>保存</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ③ 独立统计 */}
       <Paper elevation={0} sx={{ p: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>

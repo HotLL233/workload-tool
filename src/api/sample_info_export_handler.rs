@@ -4,6 +4,7 @@ use axum::response::Response;
 use axum::http::{header, StatusCode};
 use serde::Deserialize;
 use crate::db::DbPool;
+use crate::repo::sample_info_column_repo;
 use super::{sample_info_export_data, sample_info_export_write, export_write};
 use chrono::Datelike;
 
@@ -52,10 +53,14 @@ async fn export_excel(
         let fmt = export_write::Fmt::new();
         let mut wb = rust_xlsxwriter::Workbook::new();
 
+        // 加载列配置
+        let columns = sample_info_column_repo::list_active(&pool)
+            .map_err(|e| format!("列配置加载: {}", e))?;
+
         let detail = sample_info_export_data::query_detail(&conn, start, end)
             .map_err(|e| format!("明细查询: {}", e))?;
         let ws1 = wb.add_worksheet();
-        sample_info_export_write::write_sheet_detail(ws1, &detail, &fmt).map_err(|e| format!("Sheet1: {}", e))?;
+        sample_info_export_write::write_sheet_detail(ws1, &detail, &columns, &fmt).map_err(|e| format!("Sheet1: {}", e))?;
 
         let by_status = sample_info_export_data::query_by_status(&conn, start, end)
             .map_err(|e| format!("状态查询: {}", e))?;

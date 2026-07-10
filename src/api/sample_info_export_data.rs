@@ -15,6 +15,7 @@ pub struct SampleInfoExportRow {
     pub status: String,
     pub main_components: String,
     pub notes: String,
+    pub extra_fields: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -49,7 +50,7 @@ pub fn query_detail(conn: &Connection, start: &str, end: &str) -> Result<Vec<Sam
     let mut stmt = conn.prepare(&format!(
         "SELECT sir.seq_no, sir.batch_no, sir.user_name, sir.lab_name, sir.project_name, \
                 sir.submitted_at, sir.detection_date, COALESCE(sit.label, sir.detection_type), \
-                sir.status, sir.main_components, sir.notes \
+                sir.status, sir.main_components, sir.notes, sir.extra_fields \
          FROM sample_info_records sir \
          LEFT JOIN sample_info_types sit ON sit.type_key = sir.type_key \
          WHERE {} ORDER BY sir.created_at DESC",
@@ -68,6 +69,7 @@ pub fn query_detail(conn: &Connection, start: &str, end: &str) -> Result<Vec<Sam
             status: row.get(8)?,
             main_components: row.get(9)?,
             notes: row.get::<_, String>(10).unwrap_or_default(),
+            extra_fields: row.get::<_, Option<String>>(11).unwrap_or(Some("{}".into())),
         })
     })?;
     Ok(rows.collect::<std::result::Result<Vec<_>, _>>()?)

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Typography, Paper, Grid, useMediaQuery, useTheme, IconButton, CircularProgress, Alert } from '@mui/material';
+import { Box, Typography, Paper, Grid, useMediaQuery, useTheme, IconButton, Button, CircularProgress, Alert } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import BarChartIcon from '@mui/icons-material/BarChart';
 import ScienceIcon from '@mui/icons-material/Science';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { getSampleInfoTypes } from '../api/client';
@@ -36,10 +37,14 @@ const SampleInfoHome: React.FC = () => {
       {/* 顶部标题栏 */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
         <IconButton onClick={() => n('/')} size="small"><ArrowBackIcon /></IconButton>
-        <Box>
+        <Box sx={{ flex: 1 }}>
           <Typography variant="h5" fontWeight={700} color="#2e7d32">样品信息登记</Typography>
           <Typography variant="body2" color="text.secondary">ICP、热分析、质谱等原样品基础信息填写</Typography>
         </Box>
+        <Button variant="outlined" startIcon={<BarChartIcon />} onClick={() => n('/sample-info/stats')}
+          sx={{ borderRadius: R, borderColor: '#2e7d32', color: '#2e7d32', '&:hover': { borderColor: '#1b5e20', bgcolor: 'rgba(46,125,50,0.04)' } }}>
+          查看统计
+        </Button>
       </Box>
 
       {loading ? (

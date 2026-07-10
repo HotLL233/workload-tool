@@ -8,6 +8,7 @@ import type {
   WorkRecord,
   SampleRecord,
   SampleInfoRecord,
+  SampleInfoColumn,
   SampleInfoType,
   SampleStats,
   AuditLog,
@@ -388,10 +389,10 @@ export const updateHelpArticle = (id: number, data: { title?: string; is_visible
 export const getSampleInfoRecords = (params?: { detection_type?: string; type_key?: string; status?: string; user_name?: string; lab_name?: string; project_name?: string; start?: string; end?: string; page?: number; page_size?: number }): Promise<ApiResponse<PaginatedResponse<SampleInfoRecord>>> =>
   client.get('/sample-info', { params }).then(r => r.data);
 
-export const createSampleInfo = (data: { batch_no: string; user_name: string; lab_name: string; project_name: string; submitted_at?: string; detection_date?: string; main_components: string; detection_type: string; type_key: string; division_id?: number | null; quantity?: number; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
+export const createSampleInfo = (data: { batch_no: string; user_name: string; lab_name: string; project_name: string; submitted_at?: string; detection_date?: string; main_components: string; detection_type: string; type_key: string; division_id?: number | null; quantity?: number; notes?: string; extra_fields?: Record<string, any> }): Promise<ApiResponse<SampleInfoRecord>> =>
   client.post('/sample-info', data).then(r => r.data);
 
-export const updateSampleInfo = (id: number, data: { status?: string; batch_no?: string; user_name?: string; lab_name?: string; project_name?: string; submitted_at?: string; detection_date?: string; main_components?: string; type_key?: string; division_id?: number | null; quantity?: number; notes?: string }): Promise<ApiResponse<SampleInfoRecord>> =>
+export const updateSampleInfo = (id: number, data: { status?: string; batch_no?: string; user_name?: string; lab_name?: string; project_name?: string; submitted_at?: string; detection_date?: string; main_components?: string; type_key?: string; division_id?: number | null; quantity?: number; notes?: string; extra_fields?: Record<string, any> }): Promise<ApiResponse<SampleInfoRecord>> =>
   client.put(`/sample-info/${id}`, data).then(r => r.data);
 
 export const deleteSampleInfo = (id: number): Promise<ApiResponse<null>> =>
@@ -436,5 +437,45 @@ export const exportSampleInfo = (params: { start?: string; end?: string }): Prom
       }
       return r.data;
     });
+
+// ========== v0.4.26: 列自定义 API ==========
+export const getSampleInfoColumns = (): Promise<ApiResponse<SampleInfoColumn[]>> =>
+  client.get('/sample-info/columns').then(r => r.data);
+
+export const getActiveSampleInfoColumns = (): Promise<ApiResponse<SampleInfoColumn[]>> =>
+  client.get('/sample-info/columns/active').then(r => r.data);
+
+export const createSampleInfoColumn = (data: {
+  field_key: string;
+  label: string;
+  data_type: string;
+  width?: number;
+  sort_order?: number;
+  options?: string;
+  is_required?: boolean;
+  show_in_list?: boolean;
+  show_in_export?: boolean;
+  show_in_form?: boolean;
+}): Promise<ApiResponse<SampleInfoColumn>> =>
+  client.post('/sample-info/columns', data).then(r => r.data);
+
+export const updateSampleInfoColumn = (id: number, data: {
+  label?: string;
+  data_type?: string;
+  is_active?: boolean;
+  is_required?: boolean;
+  width?: number;
+  options?: string;
+  show_in_list?: boolean;
+  show_in_export?: boolean;
+  show_in_form?: boolean;
+}): Promise<ApiResponse<SampleInfoColumn>> =>
+  client.put(`/sample-info/columns/${id}`, data).then(r => r.data);
+
+export const deleteSampleInfoColumn = (id: number): Promise<ApiResponse<null>> =>
+  client.delete(`/sample-info/columns/${id}`).then(r => r.data);
+
+export const reorderSampleInfoColumns = (ids: { id: number; sort_order: number }[]): Promise<ApiResponse<SampleInfoColumn[]>> =>
+  client.put('/sample-info/columns/sort', { ids }).then(r => r.data);
 
 export default client;

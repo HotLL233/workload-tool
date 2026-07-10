@@ -8,4 +8,5 @@ pub mod audit_repo;
 pub mod help_repo;
 pub mod article_repo;
 pub mod sample_info_repo;
+pub mod sample_info_column_repo;
 pub mod sample_info_type_repo;

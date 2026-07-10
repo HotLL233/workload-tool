@@ -17,6 +17,7 @@ pub struct SampleInfoRecord {
     pub type_key: String,
     pub division_id: Option<i64>,
     pub quantity: i64,
+    pub extra_fields: Option<String>,
     pub notes: String,
     pub created_at: String,
     pub updated_at: Option<String>,
@@ -38,6 +39,7 @@ pub struct SampleInfoCreate {
     pub division_id: Option<i64>,
     pub quantity: i64,
     pub notes: Option<String>,
+    pub extra_fields: Option<serde_json::Value>,
 }
 
 /// 查询响应（含所有字段，去掉 deleted_at）
@@ -58,6 +60,7 @@ pub struct SampleInfoResponse {
     pub division_id: Option<i64>,
     pub quantity: i64,
     pub division_name: Option<String>,
+    pub extra_fields: Option<serde_json::Value>,
     pub notes: String,
     pub created_at: String,
     pub updated_at: Option<String>,
@@ -81,6 +84,7 @@ impl From<SampleInfoRecord> for SampleInfoResponse {
             division_id: r.division_id,
             quantity: r.quantity,
             division_name: None,
+            extra_fields: r.extra_fields.and_then(|s| serde_json::from_str(&s).ok()),
             notes: r.notes,
             created_at: r.created_at,
             updated_at: r.updated_at,
@@ -102,6 +106,7 @@ pub struct SampleInfoUpdate {
     pub division_id: Option<i64>,
     pub quantity: Option<i64>,
     pub notes: Option<String>,
+    pub extra_fields: Option<serde_json::Value>,
 }
 
 /// 查询参数
@@ -118,6 +123,7 @@ pub struct SampleInfoQuery {
     pub end: Option<String>,
     pub page: Option<i64>,
     pub page_size: Option<i64>,
+    pub extra_fields: Option<String>,
 }
 
 /// 状态流转请求

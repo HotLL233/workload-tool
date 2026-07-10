@@ -23,6 +23,7 @@ pub mod auth_handler;
 pub mod backup_handler;
 pub mod export_preview_handler;
 pub mod sample_info_handler;
+pub mod sample_info_column_handler;
 pub mod sample_info_type_handler;
 pub mod sample_info_export_data;
 pub mod sample_info_export_write;
@@ -71,6 +72,7 @@ pub fn api_router(pool: DbPool, config: Arc<AppConfig>) -> Router {
         .merge(help_handler::router(pool.clone()))
         .merge(article_handler::router(pool.clone()))
         .merge(sample_info_handler::router(pool.clone()))
+        .merge(sample_info_column_handler::router(pool.clone()))
         .merge(sample_info_type_handler::router(pool.clone()))
         .merge(sample_info_export_handler::router(pool.clone()))
 }

@@ -1,39 +1,76 @@
 /// 样品信息登记导出 — Excel 写入层（独立模块，复用 export_write::Fmt 样式）
+/// 根据列配置动态生成表头和数据行
 use rust_xlsxwriter::*;
 use crate::error::{Result, AppError};
+use crate::models::sample_info_column::SampleInfoColumn;
 use super::export_write::Fmt;
 use super::sample_info_export_data::*;
 
-/// Sheet 1: 全部记录明细
-pub fn write_sheet_detail(ws: &mut Worksheet, rows: &[SampleInfoExportRow], fmt: &Fmt) -> Result<()> {
+/// Sheet 1: 全部记录明细（动态列配置）
+pub fn write_sheet_detail(
+    ws: &mut Worksheet,
+    rows: &[SampleInfoExportRow],
+    columns: &[SampleInfoColumn],
+    fmt: &Fmt,
+) -> Result<()> {
     ws.set_name("记录明细").map_err(|e| AppError::Internal(e.to_string()))?;
     ws.set_tab_color(Color::RGB(0x2E7D32));
 
-    let widths = [10.0, 16.0, 12.0, 16.0, 18.0, 18.0, 14.0, 14.0, 12.0, 28.0, 30.0];
-    for (i, w) in widths.iter().enumerate() {
-        ws.set_column_width(i as u16, *w)?;
+    // 只取 show_in_export=true 的列
+    let active_cols: Vec<&SampleInfoColumn> = columns.iter().filter(|c| c.show_in_export).collect();
+
+    // 设置列宽
+    for (i, col) in active_cols.iter().enumerate() {
+        let w = (col.width as f64).max(8.0) / 10.0;
+        ws.set_column_width(i as u16, w)?;
         ws.set_column_format(i as u16, &fmt.fd)?;
+        // 写表头
+        ws.write_with_format(0u32, i as u16, col.label.as_str(), &fmt.fh)?;
     }
-    let headers = ["序号", "样品批号", "送样人", "实验室/车间", "所属项目", "送样时间", "检测时间", "检测类型", "状态", "样品主要成分", "注意事项"];
-    for (i, h) in headers.iter().enumerate() {
-        ws.write_with_format(0u32, i as u16, *h, &fmt.fh)?;
-    }
+
     let mut r = 1u32;
     for row in rows {
-        ws.write_with_format(r, 0, row.seq_no as f64, &fmt.fd)?;
-        ws.write_with_format(r, 1, row.batch_no.as_str(), &fmt.fd)?;
-        ws.write_with_format(r, 2, row.user_name.as_str(), &fmt.fd)?;
-        ws.write_with_format(r, 3, row.lab_name.as_str(), &fmt.fd)?;
-        ws.write_with_format(r, 4, row.project_name.as_str(), &fmt.fd)?;
-        ws.write_with_format(r, 5, row.submitted_at.as_str(), &fmt.fd)?;
-        ws.write_with_format(r, 6, row.detection_date.as_str(), &fmt.fd)?;
-        ws.write_with_format(r, 7, row.detection_type.as_str(), &fmt.fd)?;
-        ws.write_with_format(r, 8, row.status.as_str(), &fmt.fd)?;
-        ws.write_with_format(r, 9, row.main_components.as_str(), &fmt.fd)?;
-        ws.write_with_format(r, 10, row.notes.as_str(), &fmt.fd)?;
+        for (i, col) in active_cols.iter().enumerate() {
+            let val = get_field_value(row, &col.field_key);
+            ws.write_with_format(r, i as u16, &val, &fmt.fd)?;
+        }
         r += 1;
     }
     Ok(())
+}
+
+/// 从 export row 中提取字段值（预置字段 + extra_fields 中的自定义字段）
+fn get_field_value(row: &SampleInfoExportRow, field_key: &str) -> String {
+    match field_key {
+        "seq_no" => row.seq_no.to_string(),
+        "batch_no" => row.batch_no.clone(),
+        "user_name" => row.user_name.clone(),
+        "lab_name" => row.lab_name.clone(),
+        "project_name" => row.project_name.clone(),
+        "submitted_at" => row.submitted_at.clone(),
+        "detection_date" => row.detection_date.clone(),
+        "detection_type" => row.detection_type.clone(),
+        "status" => row.status.clone(),
+        "main_components" => row.main_components.clone(),
+        "notes" => row.notes.clone(),
+        _ => {
+            // 自定义字段：从 extra_fields JSON 中提取
+            if let Some(ref ef) = row.extra_fields {
+                if let Ok(val) = serde_json::from_str::<serde_json::Value>(ef) {
+                    if let Some(v) = val.get(field_key) {
+                        return match v {
+                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::Number(n) => n.to_string(),
+                            serde_json::Value::Bool(b) => b.to_string(),
+                            serde_json::Value::Null => String::new(),
+                            other => other.to_string(),
+                        };
+                    }
+                }
+            }
+            String::new()
+        }
+    }
 }
 
 /// 通用：写「名称-数量」型汇总 Sheet

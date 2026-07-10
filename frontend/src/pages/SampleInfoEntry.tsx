@@ -5,6 +5,7 @@ import {
   Chip, Snackbar, Alert, Select, MenuItem, FormControl, InputLabel,
   TablePagination, Collapse, CircularProgress, Checkbox, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Switch,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -13,9 +14,9 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
   getSampleInfoRecords, createSampleInfo, updateSampleInfo, updateSampleInfoStatus,
-  getSampleInfoTypes, getDivisions,
+  getSampleInfoTypes, getDivisions, getActiveSampleInfoColumns,
 } from '../api/client';
-import type { SampleInfoRecord, SampleInfoType, Division } from '../types';
+import type { SampleInfoRecord, SampleInfoType, Division, SampleInfoColumn } from '../types';
 
 const R = '2px';
 const PAGE_SIZE = 20;
@@ -31,29 +32,40 @@ const NEXT_STATUS_LABEL: Record<string, string | null> = {
   '待检测': '取样', '待取样': '已取样', '已取样': '检测完成', '检测完成': null,
 };
 
-interface RowData {
-  user_name: string;
-  division_id: number | '';
-  project_name: string;
-  quantity: number;
-  batch_no: string;
-  main_components: string;
-  notes: string;
-  checked: boolean;
-}
+// 预置字段列表 — 在 extra_fields 中排除
+const PREDEFINED_FIELDS = new Set([
+  'seq_no', 'user_name', 'division_id', 'lab_name', 'project_name',
+  'quantity', 'batch_no', 'main_components', 'notes', 'submitted_at',
+  'detection_type', 'detection_date', 'type_key', 'status',
+]);
 
-const emptyRow = (): RowData => ({
-  user_name: '', division_id: '', project_name: '', quantity: 1,
-  batch_no: '', main_components: '', notes: '', checked: false,
-});
+type RowData = Record<string, any>;
+
+const emptyRow = (columns: SampleInfoColumn[]): RowData => {
+  const row: RowData = { checked: false, _extra: {} };
+  for (const col of columns) {
+    if (PREDEFINED_FIELDS.has(col.field_key)) {
+      if (col.field_key === 'quantity') row[col.field_key] = 1;
+      else if (col.field_key === 'division_id') row[col.field_key] = '';
+      else row[col.field_key] = '';
+    } else {
+      // 自定义字段 → 存到 _extra
+      row._extra[col.field_key] = '';
+    }
+  }
+  return row;
+};
 
 const SampleInfoEntry: React.FC = () => {
   const [sp] = useSearchParams();
   const n = useNavigate();
   const dt = sp.get('type') || '';
 
+  // 列配置
+  const [columns, setColumns] = useState<SampleInfoColumn[]>([]);
+
   // 多行表格
-  const [rows, setRows] = useState<RowData[]>([emptyRow()]);
+  const [rows, setRows] = useState<RowData[]>([emptyRow([])]);
   const [submittedAt, setSubmittedAt] = useState(new Date().toISOString().slice(0, 16));
   const [snack, setSnack] = useState<{ open: boolean; msg: string; sev: 'success' | 'error' }>({ open: false, msg: '', sev: 'success' });
 
@@ -69,16 +81,27 @@ const SampleInfoEntry: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string>>({});
 
-  // 检测类型（用于提交时附带 label）
+  // 检测类型
   const [types, setTypes] = useState<SampleInfoType[]>([]);
   useEffect(() => {
     getSampleInfoTypes().then(r => { if (r.code === 0 && r.data) setTypes(r.data); }).catch(() => {});
   }, []);
 
-  // 部门列表（用于行内 Select）
+  // 部门列表
   const [divs, setDivs] = useState<Division[]>([]);
   useEffect(() => {
     getDivisions().then(r => { if (r.code === 0 && r.data) setDivs(r.data); }).catch(() => {});
+  }, []);
+
+  // 加载列配置
+  useEffect(() => {
+    getActiveSampleInfoColumns().then(r => {
+      if (r.code === 0 && r.data) {
+        const cols = r.data;
+        setColumns(cols);
+        setRows([emptyRow(cols)]);
+      }
+    }).catch(() => {});
   }, []);
 
   const load = useCallback(async () => {
@@ -100,19 +123,33 @@ const SampleInfoEntry: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  const updateRow = (idx: number, key: keyof RowData, val: any) => {
-    setRows(prev => prev.map((r, i) => i === idx ? { ...r, [key]: val } : r));
+  // 表单列（show_in_form=true）
+  const formColumns = columns.filter(c => c.show_in_form);
+  // 列表列（show_in_list=true）
+  const listColumns = columns.filter(c => c.show_in_list);
+
+  const updateRow = (idx: number, key: string, val: any) => {
+    setRows(prev => prev.map((r, i) => {
+      if (i !== idx) return r;
+      if (PREDEFINED_FIELDS.has(key)) return { ...r, [key]: val };
+      return { ...r, _extra: { ...r._extra, [key]: val } };
+    }));
   };
 
-  const addRow = () => setRows(prev => [...prev, emptyRow()]);
+  const getRowValue = (row: RowData, fieldKey: string) => {
+    if (PREDEFINED_FIELDS.has(fieldKey)) return row[fieldKey];
+    return row._extra?.[fieldKey] ?? '';
+  };
+
+  const addRow = () => setRows(prev => [...prev, emptyRow(columns)]);
 
   const deleteSelected = () => {
     const remaining = rows.filter(r => !r.checked);
-    if (remaining.length === 0) remaining.push(emptyRow());
+    if (remaining.length === 0) remaining.push(emptyRow(columns));
     setRows(remaining);
   };
 
-  const resetRows = () => setRows([emptyRow()]);
+  const resetRows = () => setRows([emptyRow(columns)]);
 
   const doSubmit = async () => {
     const typeLabel = types.find(t => t.type_key === dt)?.label || dt;
@@ -121,15 +158,17 @@ const SampleInfoEntry: React.FC = () => {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      if (!row.batch_no.trim() || !row.main_components.trim()) {
+      if (!row.batch_no?.trim() || !row.main_components?.trim()) {
         errors.push(`第 ${i + 1} 行缺少批号或主要成分`);
         continue;
       }
       try {
-        await createSampleInfo({
+        // 分离预置字段和自定义字段
+        const extra_fields: Record<string, any> = {};
+        const presetData: any = {
           batch_no: row.batch_no,
           user_name: row.user_name || '未知',
-          lab_name: '',
+          lab_name: row.lab_name || '',
           project_name: row.project_name || '',
           submitted_at: submittedAt,
           main_components: row.main_components,
@@ -138,7 +177,19 @@ const SampleInfoEntry: React.FC = () => {
           division_id: row.division_id || null,
           quantity: row.quantity || 1,
           notes: row.notes || undefined,
-        });
+        };
+        // 自定义字段
+        if (row._extra) {
+          for (const [k, v] of Object.entries(row._extra)) {
+            if (v !== '' && v !== null && v !== undefined) {
+              extra_fields[k] = v;
+            }
+          }
+        }
+        if (Object.keys(extra_fields).length > 0) {
+          presetData.extra_fields = extra_fields;
+        }
+        await createSampleInfo(presetData);
         submitted++;
       } catch (e: any) {
         errors.push(`第 ${i + 1} 行: ${e.message || '提交失败'}`);
@@ -147,7 +198,7 @@ const SampleInfoEntry: React.FC = () => {
 
     if (submitted > 0) {
       setSnack({ open: true, msg: `成功登记 ${submitted} 条` + (errors.length > 0 ? `，${errors.length} 条失败` : ''), sev: 'success' });
-      setRows([emptyRow()]);
+      setRows([emptyRow(columns)]);
       setSubmittedAt(new Date().toISOString().slice(0, 16));
       setPage(0); load();
     } else if (errors.length > 0) {
@@ -161,7 +212,11 @@ const SampleInfoEntry: React.FC = () => {
 
   const doEdit = (rec: SampleInfoRecord) => {
     setEditingId(rec.id);
-    setEditForm({ batch_no: rec.batch_no, user_name: rec.user_name, lab_name: rec.lab_name, project_name: rec.project_name, submitted_at: rec.submitted_at, main_components: rec.main_components, notes: rec.notes });
+    setEditForm({
+      batch_no: rec.batch_no, user_name: rec.user_name, lab_name: rec.lab_name,
+      project_name: rec.project_name, submitted_at: rec.submitted_at,
+      main_components: rec.main_components, notes: rec.notes,
+    });
   };
 
   const doCancelEdit = () => { setEditingId(null); setEditForm({}); };
@@ -191,6 +246,76 @@ const SampleInfoEntry: React.FC = () => {
 
   const fmtDate = (s: string) => s ? s.slice(0, 16).replace('T', ' ') : '';
 
+  /** 根据 data_type 渲染对应的输入控件 */
+  const renderCellInput = (col: SampleInfoColumn, idx: number) => {
+    const val = getRowValue(rows[idx], col.field_key);
+    switch (col.data_type) {
+      case 'select':
+        return (
+          <FormControl fullWidth size="small">
+            <Select
+              value={val}
+              displayEmpty
+              onChange={e => updateRow(idx, col.field_key, e.target.value)}
+              sx={{ fontSize: '0.8rem' }}
+            >
+              <MenuItem value=""><em>请选择</em></MenuItem>
+              {col.field_key === 'division_id' && divs.map(d => (
+                <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+              ))}
+              {col.options?.split(',').map(opt => (
+                <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        );
+      case 'number':
+        return (
+          <TextField
+            size="small" type="number"
+            value={val}
+            onChange={e => updateRow(idx, col.field_key, Math.max(1, Number(e.target.value) || 1))}
+            inputProps={{ min: 1 }}
+            sx={{ width: 70, '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
+          />
+        );
+      case 'date':
+        return (
+          <TextField
+            size="small" type="date"
+            value={val}
+            onChange={e => updateRow(idx, col.field_key, e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 140, '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
+          />
+        );
+      default:
+        return (
+          <TextField
+            size="small" fullWidth
+            value={val}
+            onChange={e => updateRow(idx, col.field_key, e.target.value)}
+            placeholder={col.label}
+            required={col.is_required}
+            sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
+          />
+        );
+    }
+  };
+
+  /** 根据 data_type 渲染只读显示值 */
+  const renderCellValue = (col: SampleInfoColumn, rec: SampleInfoRecord) => {
+    let val: any;
+    if (PREDEFINED_FIELDS.has(col.field_key)) {
+      val = (rec as any)[col.field_key];
+    } else if (rec.extra_fields) {
+      val = rec.extra_fields[col.field_key];
+    }
+    if (val === null || val === undefined || val === '') return '-';
+    if (col.data_type === 'date') return String(val).slice(0, 10);
+    return String(val);
+  };
+
   return (
     <Box sx={{ maxWidth: 1100, mx: 'auto', mt: { xs: 1, md: 3 }, px: { xs: 1, md: 2 } }}>
       {/* 顶部 */}
@@ -199,9 +324,8 @@ const SampleInfoEntry: React.FC = () => {
         <Typography variant="h5" fontWeight={700} color="#2e7d32">样品信息登记</Typography>
       </Box>
 
-      {/* === 部分 A：登记表单（Excel 模板式多行录入） === */}
+      {/* === 部分 A：登记表单 === */}
       <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: R, border: '2px solid #2e7d32', background: 'linear-gradient(145deg,#ffffff,#f1f8e9)' }}>
-        {/* 顶部公共信息 */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box>
             <Typography variant="h6" fontWeight={700} color="#2e7d32">样品信息登记</Typography>
@@ -228,7 +352,7 @@ const SampleInfoEntry: React.FC = () => {
           />
         </Box>
 
-        {/* 多行表格 */}
+        {/* 动态多行表格 */}
         <TableContainer component={Paper} sx={{ mb: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
           <Table size="small" stickyHeader>
             <TableHead>
@@ -245,13 +369,11 @@ const SampleInfoEntry: React.FC = () => {
                   />
                 </TableCell>
                 <TableCell sx={{ fontWeight: 700, p: 1, width: 50 }}>序号</TableCell>
-                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 90 }}>送样人</TableCell>
-                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 110 }}>所属部门</TableCell>
-                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 100 }}>所属项目</TableCell>
-                <TableCell sx={{ fontWeight: 700, p: 1, width: 80 }}>送样数量</TableCell>
-                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 130 }}>样品批号 *</TableCell>
-                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 140 }}>样品主要成分 *</TableCell>
-                <TableCell sx={{ fontWeight: 700, p: 1, minWidth: 120 }}>注意事项</TableCell>
+                {formColumns.map(col => (
+                  <TableCell key={col.field_key} sx={{ fontWeight: 700, p: 1, minWidth: col.width || 100 }}>
+                    {col.label}{col.is_required ? ' *' : ''}
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -265,80 +387,17 @@ const SampleInfoEntry: React.FC = () => {
                     />
                   </TableCell>
                   <TableCell sx={{ p: 0.5, fontSize: '0.8rem', color: '#999' }}>{idx + 1}</TableCell>
-                  <TableCell sx={{ p: 0.5 }}>
-                    <TextField
-                      size="small" fullWidth
-                      value={row.user_name}
-                      onChange={e => updateRow(idx, 'user_name', e.target.value)}
-                      placeholder="送样人"
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ p: 0.5 }}>
-                    <FormControl fullWidth size="small">
-                      <Select
-                        value={row.division_id}
-                        displayEmpty
-                        onChange={e => updateRow(idx, 'division_id', e.target.value)}
-                        sx={{ fontSize: '0.8rem' }}
-                      >
-                        <MenuItem value=""><em>请选择</em></MenuItem>
-                        {divs.map(d => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
-                      </Select>
-                    </FormControl>
-                  </TableCell>
-                  <TableCell sx={{ p: 0.5 }}>
-                    <TextField
-                      size="small" fullWidth
-                      value={row.project_name}
-                      onChange={e => updateRow(idx, 'project_name', e.target.value)}
-                      placeholder="项目"
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ p: 0.5 }}>
-                    <TextField
-                      size="small" type="number"
-                      value={row.quantity}
-                      onChange={e => updateRow(idx, 'quantity', Math.max(1, Number(e.target.value) || 1))}
-                      inputProps={{ min: 1 }}
-                      sx={{ width: 70, '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ p: 0.5 }}>
-                    <TextField
-                      size="small" fullWidth required
-                      value={row.batch_no}
-                      onChange={e => updateRow(idx, 'batch_no', e.target.value)}
-                      placeholder="批号 *"
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ p: 0.5 }}>
-                    <TextField
-                      size="small" fullWidth required
-                      value={row.main_components}
-                      onChange={e => updateRow(idx, 'main_components', e.target.value)}
-                      placeholder="主要成分 *"
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ p: 0.5 }}>
-                    <TextField
-                      size="small" fullWidth
-                      value={row.notes}
-                      onChange={e => updateRow(idx, 'notes', e.target.value)}
-                      placeholder="注意事项"
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: '0.8rem' } }}
-                    />
-                  </TableCell>
+                  {formColumns.map(col => (
+                    <TableCell key={col.field_key} sx={{ p: 0.5 }}>
+                      {renderCellInput(col, idx)}
+                    </TableCell>
+                  ))}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </TableContainer>
 
-        {/* 操作按钮 */}
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ borderRadius: R }}>
@@ -371,14 +430,14 @@ const SampleInfoEntry: React.FC = () => {
 
         {ld ? <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress size={32} /></Box> : (
           <>
-            {/* 表头 */}
+            {/* 动态列表头 */}
             <Box sx={{ display: 'flex', px: 2, py: 1, bgcolor: '#f5f5f5', borderRadius: R, fontWeight: 600, fontSize: '0.875rem', color: '#666', flexWrap: 'wrap' }}>
               <Box sx={{ width: 70 }}>状态</Box>
               <Box sx={{ width: 50 }}>序号</Box>
-              <Box sx={{ flex: 1, minWidth: 100 }}>样品批号</Box>
-              <Box sx={{ flex: 1, minWidth: 80 }}>送样人</Box>
-              <Box sx={{ flex: 1, minWidth: 80 }}>检测类型</Box>
-              <Box sx={{ flex: 2, minWidth: 120 }}>样品主要成分</Box>
+              {/* 当前固定显示几个关键列 + 动态列 */}
+              {listColumns.filter(c => !['status', 'seq_no'].includes(c.field_key)).map(col => (
+                <Box key={col.field_key} sx={{ flex: 1, minWidth: col.width || 80 }}>{col.label}</Box>
+              ))}
               <Box sx={{ width: 30 }} />
             </Box>
 
@@ -399,10 +458,11 @@ const SampleInfoEntry: React.FC = () => {
                       <Chip label={r.status} color={STATUS_COLORS[r.status] || 'default'} size="small" variant={isDone ? 'outlined' : 'filled'} />
                     </Box>
                     <Box sx={{ width: 50, fontSize: '0.875rem', color: '#999' }}>#{r.seq_no}</Box>
-                    <Box sx={{ flex: 1, minWidth: 100, fontSize: '0.875rem' }}>{r.batch_no}</Box>
-                    <Box sx={{ flex: 1, minWidth: 80, fontSize: '0.875rem' }}>{r.user_name}</Box>
-                    <Box sx={{ flex: 1, minWidth: 80, fontSize: '0.875rem' }}>{r.detection_type}</Box>
-                    <Box sx={{ flex: 2, minWidth: 120, fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.main_components}</Box>
+                    {listColumns.filter(c => !['status', 'seq_no'].includes(c.field_key)).map(col => (
+                      <Box key={col.field_key} sx={{ flex: 1, minWidth: col.width || 80, fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {renderCellValue(col, r)}
+                      </Box>
+                    ))}
                     <Box sx={{ width: 30 }}>{expandedId === r.id ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}</Box>
                   </Box>
 
@@ -415,7 +475,6 @@ const SampleInfoEntry: React.FC = () => {
                       </Box>
 
                       {editingId === r.id ? (
-                        /* 编辑模式 */
                         <Grid container spacing={2}>
                           <Grid item xs={12} sm={6}>
                             <TextField label="样品批号" fullWidth size="small" value={editForm.batch_no || ''} onChange={e => setEditForm(p => ({ ...p, batch_no: e.target.value }))} />
@@ -446,7 +505,6 @@ const SampleInfoEntry: React.FC = () => {
                           </Grid>
                         </Grid>
                       ) : (
-                        /* 只读模式 */
                         <>
                           <Grid container spacing={2} sx={{ mb: 2 }}>
                             <Grid item xs={12} sm={6}><Typography variant="caption" color="text.secondary">样品批号</Typography><Typography variant="body2">{r.batch_no}</Typography></Grid>

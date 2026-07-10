@@ -403,8 +403,28 @@ export interface SampleInfoRecord {
   division_name?: string | null;
   quantity: number;
   notes: string;
+  extra_fields?: Record<string, any>;
   created_at: string;
   updated_at?: string;
+}
+
+// ========== v0.4.26: 列自定义 ==========
+export interface SampleInfoColumn {
+  id: number;
+  field_key: string;
+  label: string;
+  data_type: 'text' | 'number' | 'select' | 'date';
+  is_predefined: boolean;
+  is_required: boolean;
+  is_active: boolean;
+  width: number;
+  sort_order: number;
+  options: string | null;
+  show_in_list: boolean;
+  show_in_export: boolean;
+  show_in_form: boolean;
+  created_at: string;
+  updated_at: string | null;
 }
 
 // ========== v0.4.23: 检测类型 ==========

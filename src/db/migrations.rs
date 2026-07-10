@@ -376,5 +376,49 @@ pub fn run(conn: &rusqlite::Connection) -> Result<()> {
     conn.execute("ALTER TABLE sample_info_records ADD COLUMN division_id INTEGER DEFAULT NULL", []).ok();
     conn.execute("ALTER TABLE sample_info_records ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1", []).ok();
 
+    // ═══════════════════════════════════════════════════════════
+    // v0.4.26: 列自定义 — sample_info_columns 表
+    // ═══════════════════════════════════════════════════════════
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sample_info_columns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            field_key TEXT NOT NULL UNIQUE,
+            label TEXT NOT NULL,
+            data_type TEXT NOT NULL DEFAULT 'text',
+            is_predefined INTEGER NOT NULL DEFAULT 0,
+            is_required INTEGER NOT NULL DEFAULT 0,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            width INTEGER DEFAULT 100,
+            sort_order INTEGER DEFAULT 0,
+            options TEXT,
+            show_in_list INTEGER NOT NULL DEFAULT 1,
+            show_in_export INTEGER NOT NULL DEFAULT 1,
+            show_in_form INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            updated_at TEXT DEFAULT (datetime('now','localtime'))
+        );"
+    ).ok();
+
+    // 预置数据（12 条内置列）
+    conn.execute_batch(
+        "INSERT OR IGNORE INTO sample_info_columns (field_key, label, data_type, is_predefined, is_required, sort_order, show_in_list, show_in_export, show_in_form)
+         VALUES
+          ('seq_no', '序号', 'number', 1, 0, 0, 1, 1, 0),
+          ('user_name', '送样人', 'text', 1, 0, 1, 1, 1, 1),
+          ('division_id', '所属部门', 'select', 1, 0, 2, 1, 1, 1),
+          ('lab_name', '实验室/车间', 'text', 1, 0, 3, 1, 1, 1),
+          ('project_name', '所属项目', 'text', 1, 0, 4, 1, 1, 1),
+          ('quantity', '送样数量', 'number', 1, 0, 5, 1, 1, 1),
+          ('batch_no', '样品批号', 'text', 1, 1, 6, 1, 1, 1),
+          ('main_components', '样品主要成分', 'text', 1, 1, 7, 1, 1, 1),
+          ('notes', '注意事项', 'text', 1, 0, 8, 1, 1, 1),
+          ('submitted_at', '送样时间', 'date', 1, 0, 9, 1, 1, 0),
+          ('detection_type', '检测类型', 'text', 1, 0, 10, 1, 1, 0),
+          ('status', '状态', 'text', 1, 0, 11, 1, 1, 0);"
+    ).ok();
+
+    // v0.4.26: sample_info_records 加 extra_fields 列（存储自定义字段的 JSON）
+    conn.execute("ALTER TABLE sample_info_records ADD COLUMN extra_fields TEXT DEFAULT '{}'", []).ok();
+
     Ok(())
 }

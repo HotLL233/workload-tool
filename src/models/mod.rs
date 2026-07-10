@@ -10,6 +10,7 @@ pub mod article;
 pub mod import_record;
 pub mod import;
 pub mod sample_info;
+pub mod sample_info_column;
 pub mod sample_info_type;
 
 use serde::{Deserialize, Serialize};
