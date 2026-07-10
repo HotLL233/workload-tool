@@ -481,7 +481,7 @@ const StatsPage: React.FC = () => {
       const u = URL.createObjectURL(b);
       const a = document.createElement("a");
       a.href = u;
-      a.download = `工作量统计_${s}_${e}.xlsx`;
+      a.download = `样品管理_${s}_${e}.xlsx`;
       a.click();
       URL.revokeObjectURL(u);
     } catch {

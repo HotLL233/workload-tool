@@ -1,15 +1,15 @@
-#define MyAppVersion "0.4.28"
+#define MyAppVersion "0.4.29"
 #define MyAppExeName "workload-tool.exe"
 
 [Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
-AppName=工作量统计工具
+AppName=样品管理系统
 AppVersion={#MyAppVersion}
 AppPublisher=WorkloadTool
-DefaultDirName={autopf}\工作量统计工具
+DefaultDirName={autopf}\样品管理系统
 OutputDir=D:\桌面\工作量统计工具项目\installer
-OutputBaseFilename=工作量统计工具_Rust_v0.4.28_Setup
-SetupIconFile=D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.28\icon.ico
+OutputBaseFilename=样品管理系统_v0.4.29_Setup
+SetupIconFile=D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.29\icon.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -21,14 +21,14 @@ Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 Name: "desktopicon"; Description: "创建桌面快捷方式"
 
 [Files]
-Source: "D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.28\dist\workload-tool.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.28\backend\static\*"; DestDir: "{app}\static"; Flags: ignoreversion recursesubdirs
-Source: "D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.28\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.29\dist\workload-tool.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.29\backend\static\*"; DestDir: "{app}\static"; Flags: ignoreversion recursesubdirs
+Source: "D:\桌面\工作量统计工具项目\workload-tool-rust\v0.4.29\icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\工作量统计工具"; Filename: "{app}\{#MyAppExeName}"
-Name: "{group}\卸载 工作量统计工具"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\工作量统计工具"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{group}\样品管理系统"; Filename: "{app}\{#MyAppExeName}"
+Name: "{group}\卸载 样品管理系统"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\样品管理系统"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Flags: nowait postinstall skipifsilent

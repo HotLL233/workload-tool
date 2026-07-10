@@ -228,7 +228,7 @@ async fn export_excel(
             // 审计日志：记录导出操作
             let desc = format!("导出Excel，时间范围 {} ~ {}", start, end);
             crate::repo::audit_repo::log(&pool, "export", "work_records", None, "system", &desc).ok();
-            let filename = format!("工作量统计_{}_{}.xlsx", start, end);
+            let filename = format!("样品管理_{}_{}.xlsx", start, end);
             let encoded_filename = format!(
                 "attachment; filename*=UTF-8''{}",
                 url_escape::encode_component(&filename)

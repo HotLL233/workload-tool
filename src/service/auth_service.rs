@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// JWT secret key — 生产环境应从环境变量读取
-const JWT_SECRET: &str = "workload-tool-jwt-secret-v0.4.27-A";
+const JWT_SECRET: &str = "workload-tool-jwt-secret-v0.4.29";
 
 /// JWT Claims
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -23,12 +23,13 @@ import BusinessIcon from '@mui/icons-material/Business';
 import ViewWeekIcon from '@mui/icons-material/ViewWeek';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision, getSampleInfoColumns, createSampleInfoColumn, updateSampleInfoColumn, deleteSampleInfoColumn, reorderSampleInfoColumns } from '../api/client';
-import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord, Division, SampleInfoColumn } from '../types';
+import PeopleIcon from '@mui/icons-material/People';
+import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision, getSampleInfoColumns, createSampleInfoColumn, updateSampleInfoColumn, deleteSampleInfoColumn, reorderSampleInfoColumns, userList, userRegister, updateUser, deleteUser } from '../api/client';
+import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord, Division, SampleInfoColumn, User, UserUpdate } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
 import InlineEditCard from '../components/InlineEditCard';
 
-type TV = 'projects' | 'groups' | 'methods' | 'divisions' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo';
+type TV = 'projects' | 'groups' | 'methods' | 'divisions' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo' | 'users';
 
 const R = '2px';
 const cSx = { borderRadius: R, fontWeight: 700, border: '1px solid rgba(0,0,0,0.08)' };
@@ -60,6 +61,7 @@ const TC = [
   { key: 'backup', label: '数据备份', icon: <BackupIcon />, desc: '备份恢复与自动备份设置' },
   { key: 'help', label: '教程与帮助', icon: <MenuBookIcon />, desc: '上传编辑帮助文档，管理显隐' },
   { key: 'sampleinfo', label: '样品信息登记管理', icon: <ScienceIcon />, desc: '检测类型 · 记录查询 · 独立统计' },
+  { key: 'users', label: '用户管理', icon: <PeopleIcon />, desc: '注册/编辑用户、分配权限' },
 ] as { key: TV; label: string; icon: React.ReactNode; desc: string }[];
 
 const ManagePage: React.FC = () => {
@@ -237,6 +239,46 @@ const ManagePage: React.FC = () => {
   const [siEditForm, setSiEditForm] = useState<Record<string, string>>({});
   // v0.4.28: sampleinfo 子卡片导航
   const [siSubTab, setSiSubTab] = useState<string | null>(null);
+
+  // v0.4.29: 用户管理
+  const [users, setUsers] = useState<User[]>([]);
+  const [userEditOpen, setUserEditOpen] = useState(false);
+  const [userEditItem, setUserEditItem] = useState<User | null>(null);
+  const [userForm, setUserForm] = useState({
+    username: '', password: '', division_id: null as number | null,
+    group_id: null as number | null, is_admin: false, is_active: true,
+  });
+  const loadUsers = useCallback(async () => {
+    try {
+      const r = await userList();
+      if (r.code === 0 && r.data) setUsers(r.data);
+    } catch {}
+  }, []);
+  const handleSaveUser = async () => {
+    if (!userForm.username.trim()) { sm('请输入用户名', true); return; }
+    if (!userEditItem && !userForm.password.trim()) { sm('新用户必须设置密码', true); return; }
+    try {
+      if (userEditItem) {
+        const body: UserUpdate = { username: userForm.username, division_id: userForm.division_id, group_id: userForm.group_id, is_admin: userForm.is_admin, is_active: userForm.is_active };
+        if (userForm.password.trim()) body.password = userForm.password;
+        await updateUser(userEditItem.id, body);
+        sm('用户更新成功');
+      } else {
+        await userRegister({ username: userForm.username, password: userForm.password, division_id: userForm.division_id, group_id: userForm.group_id });
+        sm('用户创建成功');
+      }
+      setUserEditOpen(false);
+      loadUsers();
+    } catch (e: any) { sm(e.message, true); }
+  };
+  const handleDeleteUser = async (id: number) => {
+    setCa(() => async () => {
+      try { await deleteUser(id); sm('用户已删除'); loadUsers(); setCo(false); }
+      catch (e: any) { sm(e.message, true); setCo(false); }
+    });
+    setCo(true);
+  };
+
   const openSiEdit = (rec: SampleInfoRecord) => {
     setSiEditId(rec.id);
     setSiEditForm({
@@ -372,7 +414,7 @@ const ManagePage: React.FC = () => {
 
   // v0.3.15: 初始加载时也加载方法类型，否则项目编辑对话框的"关联检测方法"按类型分组时 mts 为空
   useEffect(() => { setLd(true); Promise.all([lg(), lp(), lt(), lm(), lmt()]).finally(() => setLd(false)); }, [lg, lp, lt, lm, lmt]);
-  useEffect(() => { if (tb === 'audit') la(1); if (tb === 'backup') loadBk(); if (tb === 'methods') { lmt(); lm(); } if (tb === 'trash') loadTrash(); if (tb === 'help') { loadHelpDocs(); loadHelpArticles(); } }, [tb, la, lmt, lm]);
+  useEffect(() => { if (tb === 'audit') la(1); if (tb === 'backup') loadBk(); if (tb === 'methods') { lmt(); lm(); } if (tb === 'trash') loadTrash(); if (tb === 'help') { loadHelpDocs(); loadHelpArticles(); } if (tb === 'users') loadUsers(); }, [tb, la, lmt, lm, loadUsers]);
 
   // v0.4.23: 样品信息登记管理数据加载
   useEffect(() => {
@@ -1086,8 +1128,7 @@ const ManagePage: React.FC = () => {
         </Box>
       )}
 
-      {/* ① 检测类型管理 */}
-
+      {siSubTab === 'types' && (<>
       {/* ① 检测类型 CRUD */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
@@ -1144,7 +1185,9 @@ const ManagePage: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
+      </>)}
 
+      {siSubTab === 'records' && (<>
       {/* 筛选区 */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
         <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>记录查询（共 {siTotal} 条）</Typography>
@@ -1245,7 +1288,9 @@ const ManagePage: React.FC = () => {
           </Box>
         )}
       </Paper>
+      </>)}
 
+      {siSubTab === 'columns' && (<>
       {/* ④ 自定义列配置 */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
@@ -1316,6 +1361,7 @@ const ManagePage: React.FC = () => {
           </TableContainer>
         )}
       </Paper>
+      </>)}
 
       {/* 列编辑弹窗 */}
       <Dialog open={colEditOpen} onClose={() => { setColEditOpen(false); setColEditItem(null); }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: R } }}>
@@ -1369,6 +1415,7 @@ const ManagePage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {siSubTab === 'stats' && (<>
       {/* ③ 独立统计 */}
       <Paper elevation={0} sx={{ p: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
         <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>③ 独立统计（不接分析检测 /stats）</Typography>
@@ -1419,6 +1466,77 @@ const ManagePage: React.FC = () => {
           </Grid>
         )}
       </Paper>
+      </>)}
+    </Box>}
+
+    {/* ── 用户管理 (v0.4.29) ── */}
+    {tb === 'users' && <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="subtitle1" fontWeight={700} color="#f4511e">用户管理</Typography>
+        <Button variant="contained" size="small" startIcon={<AddIcon />}
+          onClick={() => {
+            setUserEditItem(null);
+            setUserForm({ username: '', password: '', division_id: null, group_id: null, is_admin: false, is_active: true });
+            setUserEditOpen(true);
+          }}
+          sx={{ borderRadius: R, bgcolor: '#f4511e', '&:hover': { bgcolor: '#e64a19' } }}>
+          新增用户
+        </Button>
+      </Box>
+
+      <TableContainer component={Paper} sx={tSx}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600 }}>用户名</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>所属部门</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>所属实验室</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>权限</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>状态</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>创建时间</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600 }}>操作</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {users.map(u => (
+              <TableRow key={u.id} hover>
+                <TableCell sx={{ fontWeight: 600 }}>{u.username}</TableCell>
+                <TableCell>{u.division_name || '未分配'}</TableCell>
+                <TableCell>{u.group_name || '未分配'}</TableCell>
+                <TableCell>
+                  <Chip label={u.is_admin ? '管理员' : '普通用户'}
+                    size="small" color={u.is_admin ? 'warning' : 'default'}
+                    variant={u.is_admin ? 'filled' : 'outlined'} />
+                </TableCell>
+                <TableCell>
+                  <Chip label={u.is_active ? '启用' : '停用'}
+                    size="small" color={u.is_active ? 'success' : 'default'}
+                    variant={u.is_active ? 'filled' : 'outlined'} />
+                </TableCell>
+                <TableCell>{new Date(u.created_at).toLocaleDateString()}</TableCell>
+                <TableCell align="right">
+                  <IconButton size="small" onClick={() => {
+                    setUserEditItem(u);
+                    setUserForm({
+                      username: u.username, password: '',
+                      division_id: u.division_id ?? null,
+                      group_id: u.group_id ?? null,
+                      is_admin: u.is_admin, is_active: u.is_active,
+                    });
+                    setUserEditOpen(true);
+                  }} sx={{ color: '#f4511e' }}><EditIcon fontSize="small" /></IconButton>
+                  <IconButton size="small" color="error" onClick={() => handleDeleteUser(u.id)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+            {users.length === 0 && (
+              <TableRow><TableCell colSpan={7} align="center" sx={{ color: '#999', py: 3 }}>暂无用户</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </Box>}
 
     {/* ── 对话框（保留：方法类型管理、确认对话框、导入映射、v0.3.18 编辑弹窗、方法一览） ── */}
@@ -2022,6 +2140,59 @@ const ManagePage: React.FC = () => {
         <TextField label="排序" type="number" fullWidth value={mtf.sort_order} onChange={e => setMtf({ ...mtf, sort_order: Number(e.target.value) || 10 })} sx={{ mt: 2, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
       </DialogContent>
       <DialogActions><Button onClick={() => setMtd(false)} sx={{ borderRadius: R }}>取消</Button><Button onClick={hmt} variant="contained" sx={{ borderRadius: R }}>保存</Button></DialogActions>
+    </Dialog>
+
+    {/* v0.4.29: 用户编辑弹窗 */}
+    <Dialog open={userEditOpen} onClose={() => setUserEditOpen(false)}
+      maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: R } }}>
+      <DialogTitle sx={{ fontWeight: 700 }}>
+        {userEditItem ? '编辑用户' : '新增用户'}
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+          <TextField label="用户名" size="small" value={userForm.username}
+            onChange={e => setUserForm(p => ({ ...p, username: e.target.value }))}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+          <TextField label="密码（留空则不修改）" type="password" size="small"
+            value={userForm.password}
+            onChange={e => setUserForm(p => ({ ...p, password: e.target.value }))}
+            helperText={userEditItem ? '留空则不修改密码' : '新用户必填'}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+          <FormControl size="small">
+            <InputLabel>所属部门</InputLabel>
+            <Select value={userForm.division_id ?? ''} label="所属部门"
+              onChange={e => setUserForm(p => ({ ...p, division_id: e.target.value ? Number(e.target.value) : null }))}
+              sx={{ borderRadius: R }}>
+              <MenuItem value="">未分配</MenuItem>
+              {divs.map(d => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl size="small">
+            <InputLabel>所属实验室</InputLabel>
+            <Select value={userForm.group_id ?? ''} label="所属实验室"
+              onChange={e => setUserForm(p => ({ ...p, group_id: e.target.value ? Number(e.target.value) : null }))}
+              sx={{ borderRadius: R }}>
+              <MenuItem value="">未分配</MenuItem>
+              {gs.map(g => <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControlLabel
+            control={<Switch checked={userForm.is_admin}
+              onChange={e => setUserForm(p => ({ ...p, is_admin: e.target.checked }))} />}
+            label="管理员权限" />
+          <FormControlLabel
+            control={<Switch checked={userForm.is_active}
+              onChange={e => setUserForm(p => ({ ...p, is_active: e.target.checked }))} />}
+            label="启用账号" />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setUserEditOpen(false)} sx={{ borderRadius: R }}>取消</Button>
+        <Button variant="contained" onClick={handleSaveUser}
+          sx={{ borderRadius: R, bgcolor: '#f4511e', '&:hover': { bgcolor: '#e64a19' } }}>
+          保存
+        </Button>
+      </DialogActions>
     </Dialog>
 
     <ConfirmDialog open={co} title="确认操作" message="确定要执行此操作吗？" confirmText="确定" cancelText="取消" onConfirm={ca} onCancel={() => setCo(false)} />
