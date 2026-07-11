@@ -427,6 +427,7 @@ const SampleEntryPage: React.FC = () => {
         </PageSectionEditor>
 
         {/* 公共送样时间（整单公共） */}
+        <PageSectionEditor pageKey="sample_entry" sectionKey="sample-time" defaultLabel="送样时间（整单公共）">
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" sx={{ mb: 0.5 }}>送样时间（整单公共）</Typography>
           <TextField
@@ -438,8 +439,10 @@ const SampleEntryPage: React.FC = () => {
             sx={{ width: isMobile ? '100%' : 240, '& .MuiOutlinedInput-root': { borderRadius: R } }}
           />
         </Box>
+        </PageSectionEditor>
 
         {/* 操作按钮栏 */}
+        <PageSectionEditor pageKey="sample_entry" sectionKey="action-btns">
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ borderRadius: R }}>
             添加行
@@ -452,8 +455,10 @@ const SampleEntryPage: React.FC = () => {
             重置
           </Button>
         </Box>
+        </PageSectionEditor>
 
         {/* 多行表格 — 动态列 */}
+        <PageSectionEditor pageKey="sample_entry" sectionKey="entry-table">
         {rows.length > 0 && (
         <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', mb: 2, overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 1280 }} stickyHeader>
@@ -626,6 +631,7 @@ const SampleEntryPage: React.FC = () => {
           </Table>
         </TableContainer>
         )}
+        </PageSectionEditor>
 
         {/* 底栏：提交按钮 */}
         <PageSectionEditor pageKey="sample_entry" sectionKey="submit-btn" defaultLabel="提交登记">
@@ -709,7 +715,7 @@ const SampleEntryPage: React.FC = () => {
 
   return (
     <EditablePageShell
-      pageKey="sample_entry"
+      pageKey="sample_entry_fields"
       defaultFields={DEFAULT_LAYOUT_FIELDS}
       onFieldsLoaded={setLayoutFields}
       renderField={(field, _isEditMode) => (

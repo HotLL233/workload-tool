@@ -56,6 +56,13 @@ export interface SectionConfig {
   label?: string;
   color?: string;
   columns?: any[];
+  buttonLabel?: string;
+  chipLabel?: string;
+  actionButtons?: {
+    addLabel?: string;
+    deleteLabel?: string;
+    resetLabel?: string;
+  };
 }
 
 export interface PageLayout {
@@ -94,6 +101,18 @@ export const PageSectionEditor: React.FC<PageSectionEditorProps> = ({
   // 编辑对话框
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
   const [editLabel, setEditLabel] = useState('');
+
+  // buttonLabel 编辑
+  const [btnLabelDialogOpen, setBtnLabelDialogOpen] = useState(false);
+  const [editBtnLabel, setEditBtnLabel] = useState('');
+
+  // chipLabel 编辑
+  const [chipLabelDialogOpen, setChipLabelDialogOpen] = useState(false);
+  const [editChipLabel, setEditChipLabel] = useState('');
+
+  // actionButtons 编辑
+  const [actionBtnsDialogOpen, setActionBtnsDialogOpen] = useState(false);
+  const [editActionBtns, setEditActionBtns] = useState({ addLabel: '', deleteLabel: '', resetLabel: '' });
 
   // 读取布局配置
   useEffect(() => {
@@ -176,6 +195,80 @@ export const PageSectionEditor: React.FC<PageSectionEditorProps> = ({
     setLabelDialogOpen(false);
   }, [layout, sectionKey, visible, defaultVisible, editLabel, saveLayout]);
 
+  // buttonLabel 编辑
+  const openBtnLabelEditor = useCallback(() => {
+    setEditBtnLabel(sectionConfig?.buttonLabel || '');
+    setBtnLabelDialogOpen(true);
+  }, [sectionConfig]);
+
+  const saveBtnLabel = useCallback(() => {
+    if (!layout) {
+      const newLayout: PageLayout = {
+        sections: { [sectionKey]: { visible: defaultVisible, buttonLabel: editBtnLabel } },
+      };
+      saveLayout(newLayout);
+    } else {
+      const updated = { ...layout, sections: { ...layout.sections } };
+      updated.sections[sectionKey] = {
+        ...(updated.sections[sectionKey] || { visible: defaultVisible }),
+        buttonLabel: editBtnLabel,
+      };
+      saveLayout(updated);
+    }
+    setBtnLabelDialogOpen(false);
+  }, [layout, sectionKey, defaultVisible, editBtnLabel, saveLayout]);
+
+  // chipLabel 编辑
+  const openChipLabelEditor = useCallback(() => {
+    setEditChipLabel(sectionConfig?.chipLabel || '');
+    setChipLabelDialogOpen(true);
+  }, [sectionConfig]);
+
+  const saveChipLabel = useCallback(() => {
+    if (!layout) {
+      const newLayout: PageLayout = {
+        sections: { [sectionKey]: { visible: defaultVisible, chipLabel: editChipLabel } },
+      };
+      saveLayout(newLayout);
+    } else {
+      const updated = { ...layout, sections: { ...layout.sections } };
+      updated.sections[sectionKey] = {
+        ...(updated.sections[sectionKey] || { visible: defaultVisible }),
+        chipLabel: editChipLabel,
+      };
+      saveLayout(updated);
+    }
+    setChipLabelDialogOpen(false);
+  }, [layout, sectionKey, defaultVisible, editChipLabel, saveLayout]);
+
+  // actionButtons 编辑
+  const openActionBtnsEditor = useCallback(() => {
+    const ab = sectionConfig?.actionButtons;
+    setEditActionBtns({
+      addLabel: ab?.addLabel || '',
+      deleteLabel: ab?.deleteLabel || '',
+      resetLabel: ab?.resetLabel || '',
+    });
+    setActionBtnsDialogOpen(true);
+  }, [sectionConfig]);
+
+  const saveActionBtns = useCallback(() => {
+    if (!layout) {
+      const newLayout: PageLayout = {
+        sections: { [sectionKey]: { visible: defaultVisible, actionButtons: editActionBtns } },
+      };
+      saveLayout(newLayout);
+    } else {
+      const updated = { ...layout, sections: { ...layout.sections } };
+      updated.sections[sectionKey] = {
+        ...(updated.sections[sectionKey] || { visible: defaultVisible }),
+        actionButtons: editActionBtns,
+      };
+      saveLayout(updated);
+    }
+    setActionBtnsDialogOpen(false);
+  }, [layout, sectionKey, defaultVisible, editActionBtns, saveLayout]);
+
   // 不渲染隐藏的 section（仅在非编辑模式下隐藏）
   if (!editMode && !visible) {
     return null;
@@ -217,6 +310,27 @@ export const PageSectionEditor: React.FC<PageSectionEditorProps> = ({
                 </IconButton>
               </Tooltip>
             )}
+            {sectionConfig?.buttonLabel !== undefined && (
+              <Tooltip title="编辑按钮文字">
+                <IconButton size="small" onClick={openBtnLabelEditor} sx={{ color: '#e65100', p: 0.3 }}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            {sectionConfig?.chipLabel !== undefined && (
+              <Tooltip title="编辑标签">
+                <IconButton size="small" onClick={openChipLabelEditor} sx={{ color: '#e65100', p: 0.3 }}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            {sectionConfig?.actionButtons !== undefined && (
+              <Tooltip title="编辑按钮文字">
+                <IconButton size="small" onClick={openActionBtnsEditor} sx={{ color: '#e65100', p: 0.3 }}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
             <Typography variant="caption" sx={{ color: '#e65100', fontWeight: 600, alignSelf: 'center', fontSize: '0.65rem', px: 0.5 }}>
               {sectionKey}
             </Typography>
@@ -246,6 +360,81 @@ export const PageSectionEditor: React.FC<PageSectionEditorProps> = ({
         <DialogActions>
           <Button onClick={() => setLabelDialogOpen(false)} size="small" sx={{ borderRadius: R }}>取消</Button>
           <Button onClick={saveLabel} variant="contained" size="small" sx={{ borderRadius: R }}>保存</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* buttonLabel 编辑对话框 */}
+      <Dialog open={btnLabelDialogOpen} onClose={() => setBtnLabelDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: R } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem' }}>编辑按钮文字</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            value={editBtnLabel}
+            onChange={e => setEditBtnLabel(e.target.value)}
+            placeholder="输入按钮文字"
+            sx={{ mt: 1, '& .MuiOutlinedInput-root': { borderRadius: R } }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBtnLabelDialogOpen(false)} size="small" sx={{ borderRadius: R }}>取消</Button>
+          <Button onClick={saveBtnLabel} variant="contained" size="small" sx={{ borderRadius: R }}>保存</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* chipLabel 编辑对话框 */}
+      <Dialog open={chipLabelDialogOpen} onClose={() => setChipLabelDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: R } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem' }}>编辑标签</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            value={editChipLabel}
+            onChange={e => setEditChipLabel(e.target.value)}
+            placeholder="输入标签文字"
+            sx={{ mt: 1, '& .MuiOutlinedInput-root': { borderRadius: R } }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChipLabelDialogOpen(false)} size="small" sx={{ borderRadius: R }}>取消</Button>
+          <Button onClick={saveChipLabel} variant="contained" size="small" sx={{ borderRadius: R }}>保存</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* actionButtons 编辑对话框 */}
+      <Dialog open={actionBtnsDialogOpen} onClose={() => setActionBtnsDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: R } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem' }}>编辑按钮文字</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            size="small"
+            label="添加行"
+            value={editActionBtns.addLabel}
+            onChange={e => setEditActionBtns(p => ({ ...p, addLabel: e.target.value }))}
+            sx={{ mt: 1, mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: R } }}
+          />
+          <TextField
+            fullWidth
+            size="small"
+            label="删除选中"
+            value={editActionBtns.deleteLabel}
+            onChange={e => setEditActionBtns(p => ({ ...p, deleteLabel: e.target.value }))}
+            sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { borderRadius: R } }}
+          />
+          <TextField
+            fullWidth
+            size="small"
+            label="重置"
+            value={editActionBtns.resetLabel}
+            onChange={e => setEditActionBtns(p => ({ ...p, resetLabel: e.target.value }))}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setActionBtnsDialogOpen(false)} size="small" sx={{ borderRadius: R }}>取消</Button>
+          <Button onClick={saveActionBtns} variant="contained" size="small" sx={{ borderRadius: R }}>保存</Button>
         </DialogActions>
       </Dialog>
 
