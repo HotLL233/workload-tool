@@ -13,9 +13,11 @@ pub fn list(pool: &DbPool) -> Result<Vec<GroupResponse>> {
                  WHERE pll2.group_id = g.id) AS project_names,
                 (SELECT COUNT(*) FROM rd_work_records wr2
                  WHERE wr2.group_id = g.id AND wr2.deleted_at IS NULL AND wr2.status = '待取样') AS rd_record_count,
-                g.show_in_work, g.show_in_rd
+                g.show_in_work, g.show_in_rd,
+                g.division_id, dv.name AS division_name
          FROM project_groups g
          LEFT JOIN project_lab_links pll ON pll.group_id = g.id
+         LEFT JOIN divisions dv ON dv.id = g.division_id
          WHERE g.name != '研发项目'
          GROUP BY g.id ORDER BY g.sort_order"
     )?;
@@ -26,6 +28,8 @@ pub fn list(pool: &DbPool) -> Result<Vec<GroupResponse>> {
             project_names: row.get(5)?, rd_record_count: row.get(6)?,
             show_in_work: row.get::<_, bool>(7).unwrap_or(true),
             show_in_rd: row.get::<_, bool>(8).unwrap_or(true),
+            division_id: row.get(9)?,
+            division_name: row.get(10)?,
         })
     })?;
     rows.collect::<std::result::Result<Vec<_>, _>>().map_err(Into::into)
@@ -40,8 +44,10 @@ pub fn get_by_id(pool: &DbPool, id: i64) -> Result<GroupResponse> {
                  WHERE pll2.group_id = g.id) AS project_names,
                 (SELECT COUNT(*) FROM rd_work_records wr2
                  WHERE wr2.group_id = g.id AND wr2.deleted_at IS NULL AND wr2.status = '待取样') AS rd_record_count,
-                g.show_in_work, g.show_in_rd
+                g.show_in_work, g.show_in_rd,
+                g.division_id, dv.name AS division_name
          FROM project_groups g LEFT JOIN project_lab_links pll ON pll.group_id = g.id
+         LEFT JOIN divisions dv ON dv.id = g.division_id
          WHERE g.id = ?1 GROUP BY g.id",
         [id],
         |row| Ok(GroupResponse {
@@ -50,6 +56,8 @@ pub fn get_by_id(pool: &DbPool, id: i64) -> Result<GroupResponse> {
             project_names: row.get(5)?, rd_record_count: row.get(6)?,
             show_in_work: row.get::<_, bool>(7).unwrap_or(true),
             show_in_rd: row.get::<_, bool>(8).unwrap_or(true),
+            division_id: row.get(9)?,
+            division_name: row.get(10)?,
         }),
     ).map_err(|e| match e {
         rusqlite::Error::QueryReturnedNoRows => crate::error::AppError::NotFound("分组不存在".into()),
@@ -60,8 +68,8 @@ pub fn get_by_id(pool: &DbPool, id: i64) -> Result<GroupResponse> {
 pub fn create(pool: &DbPool, body: &GroupCreate) -> Result<GroupResponse> {
     let conn = pool.get()?;
     conn.execute(
-        "INSERT INTO project_groups (name, sort_order, show_in_work, show_in_rd) VALUES (?1, ?2, ?3, ?4)",
-        (&body.name, body.sort_order.unwrap_or(0), body.show_in_work.unwrap_or(true), body.show_in_rd.unwrap_or(true)),
+        "INSERT INTO project_groups (name, sort_order, show_in_work, show_in_rd, division_id) VALUES (?1, ?2, ?3, ?4, ?5)",
+        (&body.name, body.sort_order.unwrap_or(0), body.show_in_work.unwrap_or(true), body.show_in_rd.unwrap_or(true), body.division_id),
     )?;
     let id = conn.last_insert_rowid();
     audit_repo::log(pool, "create", "project_groups", Some(id), "system", &format!("创建实验室「{}」", body.name))?;
@@ -81,6 +89,10 @@ pub fn update(pool: &DbPool, id: i64, body: &GroupUpdate) -> Result<GroupRespons
     }
     if let Some(v) = body.show_in_rd {
         conn.execute("UPDATE project_groups SET show_in_rd=?1 WHERE id=?2", (v, id))?;
+    }
+    if let Some(did) = body.division_id {
+        // did: Option<i64>；None(内层) 表示显式置空(未分配事业部)，Some(v) 表示指定事业部
+        conn.execute("UPDATE project_groups SET division_id=?1 WHERE id=?2", (did, id))?;
     }
     audit_repo::log(pool, "update", "project_groups", Some(id), "system", &format!("编辑实验室「{}」", body.name.as_deref().unwrap_or("")))?;
     get_by_id(pool, id)

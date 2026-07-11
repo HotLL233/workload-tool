@@ -10,6 +10,8 @@ pub struct RdRecordResponse {
     pub user_name: String,
     pub quantity: i32,
     pub recorded_at: String,
+    pub batch_no: Option<String>,
+    pub notes: Option<String>,
     pub created_at: String,
     pub deleted_at: Option<String>,
     pub method_name: Option<String>,
@@ -22,4 +24,18 @@ pub struct RdRecordResponse {
 #[derive(Debug, Deserialize)]
 pub struct RdSampleUpdate {
     pub sampler: String,
+}
+
+/// RdRecordCreate — mirrors RecordCreate with batch_no/notes
+#[derive(Debug, Deserialize)]
+pub struct RdRecordCreate {
+    pub project_id: i64,
+    pub method_id: Option<i64>,
+    pub user_name: String,
+    pub quantity: i32,
+    pub recorded_at: String,
+    pub group_id: Option<i64>,
+    pub division_id: Option<i64>,
+    pub batch_no: Option<String>,
+    pub notes: Option<String>,
 }

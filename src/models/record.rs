@@ -26,6 +26,7 @@ pub struct RecordCreate {
     pub recorded_at: String,
     pub group_id: Option<i64>,
     pub multiplier: Option<f64>,
+    pub division_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -34,4 +35,9 @@ pub struct RecordUpdate {
     pub quantity: Option<i32>,
     pub recorded_at: Option<String>,
     pub multiplier: Option<f64>,
+    // v0.4.34: 行内编辑扩展字段
+    pub project_id: Option<i64>,
+    pub method_id: Option<i64>,
+    pub batch_no: Option<String>,
+    pub notes: Option<String>,
 }

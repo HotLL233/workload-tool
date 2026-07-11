@@ -1,12 +1,12 @@
 use crate::db::DbPool;
 use crate::error::Result;
-use crate::models::rd_record::{RdRecordResponse, RdSampleUpdate};
+use crate::models::rd_record::RdRecordResponse;
 use crate::models::record::{RecordCreate, RecordUpdate};
 use crate::repo::audit_repo;
 
 pub fn list(
     pool: &DbPool, project_id: Option<i64>, group_id: Option<i64>,
-    user_name: Option<&str>,
+    user_name: Option<&str>, division_id: Option<i64>,
     start: Option<&str>, end: Option<&str>, page: i64, page_size: i64,
     include_deleted: bool,
 ) -> Result<(Vec<RdRecordResponse>, i64)> {
@@ -17,6 +17,7 @@ pub fn list(
     if !include_deleted { where_clauses.push("wr.deleted_at IS NULL".to_string()); }
     if let Some(pid) = project_id { where_clauses.push(format!("wr.project_id={}", pid)); }
     if let Some(gid) = group_id { where_clauses.push(format!("wr.group_id={}", gid)); }
+    if let Some(did) = division_id { where_clauses.push(format!("wr.division_id={}", did)); }
     if let Some(un) = user_name { where_clauses.push("wr.user_name=?1".to_string()); params.push(Box::new(un.to_string())); }
     if let Some(s) = start { let idx = params.len() + 1; where_clauses.push(format!("wr.recorded_at>=?{}", idx)); params.push(Box::new(s.to_string())); }
     if let Some(e) = end { let idx = params.len() + 1; where_clauses.push(format!("wr.recorded_at<=?{}", idx)); params.push(Box::new(format!("{}T23:59:59", e))); }
@@ -31,7 +32,7 @@ pub fn list(
                     '未知'
                 ) AS group_name,
                 wr.user_name, wr.quantity,
-                wr.recorded_at, wr.created_at, wr.deleted_at,
+                wr.recorded_at, wr.batch_no, wr.notes, wr.created_at, wr.deleted_at,
                 wr.status, wr.sampler, wr.sampled_at,
                 COALESCE(NULLIF(m.full_name,''), NULLIF(m.name,'')) AS method_name,
                 (SELECT group_concat(DISTINCT mt.name)
@@ -52,9 +53,11 @@ pub fn list(
         |row| Ok(RdRecordResponse {
             id: row.get(0)?, project_id: row.get(1)?, method_id: row.get(2)?,
             project_name: row.get(3)?, group_name: row.get(4)?, user_name: row.get(5)?,
-            quantity: row.get(6)?, recorded_at: row.get(7)?, created_at: row.get(8)?,
-            deleted_at: row.get(9)?, status: row.get(10)?, sampler: row.get(11)?,
-            sampled_at: row.get(12)?, method_name: row.get(13)?, method_type: row.get(14)?,
+            quantity: row.get(6)?, recorded_at: row.get(7)?,
+            batch_no: row.get(8)?, notes: row.get(9)?,
+            created_at: row.get(10)?, deleted_at: row.get(11)?,
+            status: row.get(12)?, sampler: row.get(13)?,
+            sampled_at: row.get(14)?, method_name: row.get(15)?, method_type: row.get(16)?,
         }),
     )?;
     let items: Vec<RdRecordResponse> = rows.collect::<std::result::Result<Vec<_>, _>>()?;
@@ -80,7 +83,7 @@ fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<RdRecordRes
                     '未知'
                 ) AS group_name,
                 wr.user_name, wr.quantity,
-                wr.recorded_at, wr.created_at, wr.deleted_at,
+                wr.recorded_at, wr.batch_no, wr.notes, wr.created_at, wr.deleted_at,
                 wr.status, wr.sampler, wr.sampled_at,
                 COALESCE(NULLIF(m.full_name,''), NULLIF(m.name,'')) AS method_name,
                 (SELECT group_concat(DISTINCT mt.name)
@@ -94,9 +97,11 @@ fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<RdRecordRes
         |row| Ok(RdRecordResponse {
             id: row.get(0)?, project_id: row.get(1)?, method_id: row.get(2)?,
             project_name: row.get(3)?, group_name: row.get(4)?, user_name: row.get(5)?,
-            quantity: row.get(6)?, recorded_at: row.get(7)?, created_at: row.get(8)?,
-            deleted_at: row.get(9)?, status: row.get(10)?, sampler: row.get(11)?,
-            sampled_at: row.get(12)?, method_name: row.get(13)?, method_type: row.get(14)?,
+            quantity: row.get(6)?, recorded_at: row.get(7)?,
+            batch_no: row.get(8)?, notes: row.get(9)?,
+            created_at: row.get(10)?, deleted_at: row.get(11)?,
+            status: row.get(12)?, sampler: row.get(13)?,
+            sampled_at: row.get(14)?, method_name: row.get(15)?, method_type: row.get(16)?,
         }),
     ).map_err(|e| match e {
         rusqlite::Error::QueryReturnedNoRows => crate::error::AppError::NotFound("记录不存在".into()),
@@ -109,13 +114,13 @@ pub fn get_by_id(pool: &DbPool, id: i64) -> Result<RdRecordResponse> {
     get_by_id_on_conn(&conn, id)
 }
 
-pub fn create(pool: &DbPool, body: &RecordCreate) -> Result<RdRecordResponse> {
+pub fn create(pool: &DbPool, body: &RecordCreate, batch_no: Option<String>, notes: Option<String>) -> Result<RdRecordResponse> {
     let mut conn = pool.get()?;
     let tx = conn.transaction()?;
     tx.execute(
-        "INSERT INTO rd_work_records (project_id, method_id, user_name, quantity, recorded_at, group_id, status)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, '待取样')",
-        rusqlite::params!(body.project_id, body.method_id, &body.user_name, body.quantity, &body.recorded_at, body.group_id),
+        "INSERT INTO rd_work_records (project_id, method_id, user_name, quantity, recorded_at, group_id, division_id, batch_no, notes, status)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, '待取样')",
+        rusqlite::params!(body.project_id, body.method_id, &body.user_name, body.quantity, &body.recorded_at, body.group_id, body.division_id, batch_no, notes),
     )?;
     let id = tx.last_insert_rowid();
     // 查询完整记录信息用于审计详情
@@ -169,6 +174,38 @@ pub fn update(pool: &DbPool, id: i64, body: &RecordUpdate, user_name: &str) -> R
     if let Some(ref dt) = body.recorded_at {
         if dt != &existing.recorded_at { changes.push(format!("日期 {} → {}", existing.recorded_at, dt)); }
         let rows = tx.execute("UPDATE rd_work_records SET recorded_at=?1 WHERE id=?2", (dt, id))?;
+        if rows == 0 {
+            return Err(crate::error::AppError::NotFound("记录不存在".into()));
+        }
+        updated = true;
+    }
+    if let Some(ref bn) = body.batch_no {
+        if Some(bn.as_str()) != existing.batch_no.as_deref() { changes.push(format!("批号 {} → {}", existing.batch_no.as_deref().unwrap_or(""), bn)); }
+        let rows = tx.execute("UPDATE rd_work_records SET batch_no=?1 WHERE id=?2", (bn, id))?;
+        if rows == 0 {
+            return Err(crate::error::AppError::NotFound("记录不存在".into()));
+        }
+        updated = true;
+    }
+    if let Some(ref n) = body.notes {
+        if Some(n.as_str()) != existing.notes.as_deref() { changes.push(format!("注意事项 {} → {}", existing.notes.as_deref().unwrap_or(""), n)); }
+        let rows = tx.execute("UPDATE rd_work_records SET notes=?1 WHERE id=?2", (n, id))?;
+        if rows == 0 {
+            return Err(crate::error::AppError::NotFound("记录不存在".into()));
+        }
+        updated = true;
+    }
+    if let Some(pid) = body.project_id {
+        if pid != existing.project_id { changes.push(format!("项目ID {} → {}", existing.project_id, pid)); }
+        let rows = tx.execute("UPDATE rd_work_records SET project_id=?1 WHERE id=?2", (pid, id))?;
+        if rows == 0 {
+            return Err(crate::error::AppError::NotFound("记录不存在".into()));
+        }
+        updated = true;
+    }
+    if let Some(mid) = body.method_id {
+        if Some(mid) != existing.method_id { changes.push(format!("方法ID {:?} → {:?}", existing.method_id, mid)); }
+        let rows = tx.execute("UPDATE rd_work_records SET method_id=?1 WHERE id=?2", (mid, id))?;
         if rows == 0 {
             return Err(crate::error::AppError::NotFound("记录不存在".into()));
         }
@@ -244,11 +281,21 @@ pub fn delete_by_user(pool: &DbPool, user_name: &str, start: Option<&str>, end: 
     Ok(count as i64)
 }
 
-pub fn sample(pool: &DbPool, id: i64, body: &RdSampleUpdate) -> Result<RdRecordResponse> {
+pub fn sample(pool: &DbPool, id: i64, sampler: &str) -> Result<RdRecordResponse> {
     let conn = pool.get()?;
     conn.execute(
         "UPDATE rd_work_records SET sampler=?1, sampled_at=datetime('now','localtime'), status='已取样' WHERE id=?2",
-        rusqlite::params![&body.sampler, id],
+        rusqlite::params![sampler, id],
     )?;
     get_by_id_on_conn(&conn, id)
+}
+
+pub fn is_sampled(pool: &DbPool, id: i64) -> Result<bool> {
+    let conn = pool.get()?;
+    let val: Option<bool> = conn.query_row(
+        "SELECT sampled_at IS NOT NULL FROM rd_work_records WHERE id=?1",
+        rusqlite::params![id],
+        |r| r.get(0),
+    ).ok();
+    Ok(val.unwrap_or(false))
 }

@@ -139,7 +139,7 @@ async fn main() {
 
     #[cfg(all(not(feature = "console"), target_os = "windows"))] { tray::run_tray(port); }
     #[cfg(feature = "console")] {
-        println!("🚀 工作量统计工具 v{} (Rust) — http://{}", env!("CARGO_PKG_VERSION"), addr);
+        println!("🚀 样品管理系统 v{} (Rust) — http://{}", env!("CARGO_PKG_VERSION"), addr);
         println!("按 Ctrl+C 退出");
         _server.await.unwrap();
     }

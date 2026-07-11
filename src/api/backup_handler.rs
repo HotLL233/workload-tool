@@ -1,8 +1,10 @@
-use axum::{extract::{Multipart, State, Path}, Router, Json, routing::{get, post, delete}, response::IntoResponse};
+use axum::{extract::{Multipart, State, Path}, Router, Json, routing::{get, post, delete}, response::IntoResponse, http::HeaderMap};
 use serde::{Deserialize, Serialize};
 use crate::config::AppConfig;
+use crate::error::{AppError, Result};
 use crate::models::ApiResponse;
 use crate::repo::audit_repo;
+use crate::service::auth_service;
 use std::sync::Arc; use std::fs; use chrono::Local;
 use rusqlite::Connection;
 
@@ -16,8 +18,22 @@ pub fn router(config: Arc<AppConfig>) -> Router {
     Router::new().route("/api/backup/status", get(status)).route("/api/backup/now", post(backup_now)).route("/api/backup/restore", post(restore)).route("/api/backup/restore/{fname}", post(restore_file)).route("/api/backup/config", get(get_config).put(update_config)).route("/api/backup/file/{fname}", delete(delete_backup)).with_state(config)
 }
 
+/// 从 HeaderMap 中提取 JWT claims 并校验管理员权限
+fn extract_admin_from_headers(headers: &HeaderMap) -> Result<auth_service::Claims> {
+    let token = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .ok_or_else(|| AppError::Validation("未提供登录凭证".into()))?;
+    let claims = auth_service::verify_token(token)?;
+    if !claims.is_admin {
+        return Err(AppError::Forbidden("需要管理员权限".into()));
+    }
+    Ok(claims)
+}
+
 /// 使用 VACUUM INTO 进行原子一致性备份
-fn do_backup(db_path: &str, backup_dir: &std::path::Path) -> Result<(String, u64), String> {
+fn do_backup(db_path: &str, backup_dir: &std::path::Path) -> std::result::Result<(String, u64), String> {
     fs::create_dir_all(backup_dir).map_err(|e| e.to_string())?;
     let name = format!("workload_{}.db", Local::now().format("%Y%m%d_%H%M%S"));
     let dst = backup_dir.join(&name);
@@ -27,10 +43,8 @@ fn do_backup(db_path: &str, backup_dir: &std::path::Path) -> Result<(String, u64
     Ok((name, size))
 }
 
-fn table_counts(db_path: &str) -> Result<Vec<TableCount>, String> {
+fn table_counts(db_path: &str) -> std::result::Result<Vec<TableCount>, String> {
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
-    // (表名, 中文标签)：带中文标签便于前端展示。
-    // 仅统计带 deleted_at 软删除列的录入类表（与 v0.4.0 显示范围一致）。
     let specs: &[(&str, &str)] = &[
         ("work_records", "分析检测记录"),
         ("sample_records", "送样记录(已退役)"),
@@ -45,7 +59,7 @@ fn table_counts(db_path: &str) -> Result<Vec<TableCount>, String> {
     Ok(counts)
 }
 
-fn verify_backup(path: &std::path::Path) -> Result<String, String> {
+fn verify_backup(path: &std::path::Path) -> std::result::Result<String, String> {
     let conn = Connection::open(path).map_err(|e| format!("验证失败: {}", e))?;
     let ok: String = conn.query_row("PRAGMA integrity_check", [], |r| r.get(0)).map_err(|e| e.to_string())?;
     if ok == "ok" { Ok(ok) } else { Err(format!("数据库损坏: {}", ok)) }
@@ -73,7 +87,10 @@ async fn status(State(cfg): State<Arc<AppConfig>>) -> impl IntoResponse {
     Json(ApiResponse::ok(BkStatus { auto_enabled: cfg.backup_enabled, auto_interval_hours: cfg.backup_interval_hours, max_backup_count: cfg.max_backup_count, last_backup: files.first().map(|f| f.name.clone()), backup_count: files.len(), backup_files: files, db_size, tables, backups_dir: dir.to_string_lossy().to_string() }))
 }
 
-async fn backup_now(State(cfg): State<Arc<AppConfig>>) -> impl IntoResponse {
+async fn backup_now(State(cfg): State<Arc<AppConfig>>, headers: HeaderMap) -> impl IntoResponse {
+    if let Err(e) = extract_admin_from_headers(&headers) {
+        return Json(ApiResponse::<String>::ok_msg(format!("{}", e)));
+    }
     let db = cfg.db_path().to_string_lossy().to_string();
     let backup_dir = cfg.backup_dir();
     match do_backup(&db, &backup_dir) {
@@ -105,7 +122,10 @@ fn cleanup_old_backups(dir: &std::path::Path, max_count: u64) {
 }
 
 /// 上传文件恢复
-async fn restore(State(cfg): State<Arc<AppConfig>>, mut mp: Multipart) -> impl IntoResponse {
+async fn restore(State(cfg): State<Arc<AppConfig>>, headers: HeaderMap, mut mp: Multipart) -> impl IntoResponse {
+    if let Err(e) = extract_admin_from_headers(&headers) {
+        return Json(ApiResponse::<String>::ok_msg(format!("{}", e)));
+    }
     let mut tmp = String::new();
     while let Ok(Some(f)) = mp.next_field().await { if f.name() == Some("file") { if let Ok(d) = f.bytes().await { if !d.is_empty() { let p = std::env::temp_dir().join("restore_tmp.db"); if fs::write(&p, &d).is_ok() { tmp = p.to_string_lossy().to_string(); } } } } }
     if tmp.is_empty() { return Json(ApiResponse::<String>::ok_msg(String::from("未收到文件"))); }
@@ -123,7 +143,10 @@ async fn restore(State(cfg): State<Arc<AppConfig>>, mut mp: Multipart) -> impl I
 }
 
 /// 从已有备份文件恢复
-async fn restore_file(State(cfg): State<Arc<AppConfig>>, Path(fname): Path<String>) -> impl IntoResponse {
+async fn restore_file(State(cfg): State<Arc<AppConfig>>, headers: HeaderMap, Path(fname): Path<String>) -> impl IntoResponse {
+    if let Err(e) = extract_admin_from_headers(&headers) {
+        return Json(ApiResponse::<String>::ok_msg(format!("{}", e)));
+    }
     if fname.contains("..") || fname.contains("/") || fname.contains("\\") { return Json(ApiResponse::<String>::ok_msg(String::from("非法文件名"))); }
     let src = cfg.backup_dir().join(&fname);
     if !src.exists() { return Json(ApiResponse::<String>::ok_msg(format!("备份文件不存在: {}", fname))); }
@@ -131,7 +154,6 @@ async fn restore_file(State(cfg): State<Arc<AppConfig>>, Path(fname): Path<Strin
         return Json(ApiResponse::<String>::ok_msg(format!("备份文件无效: {}", e)));
     }
     let db = cfg.db_path().to_string_lossy().to_string();
-    // 恢复前备份当前库
     let bk = do_backup(&db, &cfg.backup_dir()).map(|(n, _)| n).unwrap_or_else(|_| "unknown".into());
     match fs::copy(&src, &db) {
         Ok(_) => {
@@ -144,19 +166,23 @@ async fn restore_file(State(cfg): State<Arc<AppConfig>>, Path(fname): Path<Strin
 
 async fn get_config(State(cfg): State<Arc<AppConfig>>) -> impl IntoResponse { Json(ApiResponse::ok(BkConfig { enabled: cfg.backup_enabled, interval_hours: cfg.backup_interval_hours, max_backup_count: cfg.max_backup_count })) }
 
-async fn update_config(State(cfg): State<Arc<AppConfig>>, Json(b): Json<BkUpdate>) -> impl IntoResponse {
-    // 更新内存中的配置
+async fn update_config(State(cfg): State<Arc<AppConfig>>, headers: HeaderMap, Json(b): Json<BkUpdate>) -> impl IntoResponse {
+    if let Err(e) = extract_admin_from_headers(&headers) {
+        return Json(ApiResponse::<String>::ok_msg(format!("{}", e)));
+    }
     let mut new_cfg = (*cfg).clone();
     new_cfg.backup_enabled = b.enabled;
     new_cfg.backup_interval_hours = b.interval_hours;
     if let Some(mc) = b.max_backup_count { new_cfg.max_backup_count = mc; }
-    // 持久化到 config.toml
     new_cfg.save();
     let _ = audit_repo::log_for_backup("config", &format!("备份设置: 自动={} 间隔={}h 最大={}", b.enabled, b.interval_hours, b.max_backup_count.unwrap_or(10)));
     Json(ApiResponse::<String>::ok_msg(format!("自动备份已{}，重启后生效", if b.enabled { "启用" } else { "禁用" })))
 }
 
-async fn delete_backup(State(cfg): State<Arc<AppConfig>>, Path(fname): Path<String>) -> impl IntoResponse {
+async fn delete_backup(State(cfg): State<Arc<AppConfig>>, headers: HeaderMap, Path(fname): Path<String>) -> impl IntoResponse {
+    if let Err(e) = extract_admin_from_headers(&headers) {
+        return Json(ApiResponse::<String>::ok_msg(format!("{}", e)));
+    }
     if fname.contains("..") || fname.contains("/") || fname.contains("\\") { return Json(ApiResponse::<String>::ok_msg(String::from("非法文件名"))); }
     let path = cfg.backup_dir().join(&fname);
     match fs::remove_file(&path) { 

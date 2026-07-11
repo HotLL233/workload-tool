@@ -1,5 +1,5 @@
 /// 导出数据预览 API - v0.3.7
-/// 提供 10 个预览端点，对应 10 个 Sheet 的数据查询
+/// 提供 11 个预览端点，对应 11 个 Sheet 的数据查询 (v0.4.28: Sheet 11 改为事业部汇总)
 
 use axum::{extract::{Query, State}, Router, response::Json, routing::get};
 use chrono::Datelike;
@@ -8,6 +8,7 @@ use crate::error::Result;
 use crate::models::ApiResponse;
 use super::export_data;
 use super::export_handler::ExportQuery;
+use crate::service::stats_service;
 
 /// 解析日期范围（复用 export_handler 逻辑）
 fn resolve_date_range(q: &ExportQuery) -> (String, String) {
@@ -177,9 +178,8 @@ async fn preview_sheet10(
 async fn preview_sheet11(
     State(pool): State<DbPool>,
     Query(q): Query<ExportQuery>,
-) -> Result<Json<ApiResponse<Vec<export_data::TypeSummaryRow>>>> {
+) -> Result<Json<ApiResponse<Vec<stats_service::DivisionSummary>>>> {
     let (start, end) = resolve_date_range(&q);
-    let conn = pool.get()?;
-    let data = export_data::query_sheet11_data(&conn, &start, &end)?;
+    let data = stats_service::by_division(&pool, &start, &end, None)?;
     Ok(Json(ApiResponse::ok(data)))
 }

@@ -127,7 +127,9 @@ export type TabValue =
   | "sheet7"
   | "sheet8"
   | "sheet9"
-  | "sheet10";
+  | "sheet10"
+  | "division"
+  | "sheet11";
 interface StatCardDef {
   key: TabValue;
   label: string;
@@ -1850,7 +1852,7 @@ const StatsPage: React.FC = () => {
           backgroundClip: "text",
         }}
       >
-        统计分析
+        研发送样统计
       </Typography>
       {sm && (
         <StatsCards

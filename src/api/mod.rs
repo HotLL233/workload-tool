@@ -1,4 +1,5 @@
 pub mod group_handler;
+pub mod division_handler;
 pub mod project_handler;
 pub mod method_handler;
 pub mod record_handler;
@@ -21,6 +22,16 @@ pub mod article_handler;
 pub mod auth_handler;
 pub mod backup_handler;
 pub mod export_preview_handler;
+pub mod sample_info_handler;
+pub mod sample_info_column_handler;
+pub mod sample_info_type_handler;
+pub mod sample_info_export_data;
+pub mod sample_info_export_write;
+pub mod sample_info_export_handler;
+pub mod sample_info_attachment_handler;
+pub mod user_handler;
+pub mod role_handler;
+pub mod rd_record_column_handler;
 
 use axum::{Router, Json, routing::get};
 use serde::Serialize;
@@ -47,6 +58,7 @@ pub fn api_router(pool: DbPool, config: Arc<AppConfig>) -> Router {
         .route("/api/version", get(version))
         .route("/api/health", get(health_check))
         .merge(group_handler::router(pool.clone()))
+        .merge(division_handler::router(pool.clone()))
         .merge(project_handler::router(pool.clone()))
         .merge(method_handler::router(pool.clone()))
         .merge(record_handler::router(pool.clone()))
@@ -59,8 +71,16 @@ pub fn api_router(pool: DbPool, config: Arc<AppConfig>) -> Router {
         .merge(import_handler::router(pool.clone()))
         .merge(audit_handler::router(pool.clone()))
         .merge(auth_handler::router(config.clone()))
-        .merge(backup_handler::router(config))
+        .merge(backup_handler::router(config.clone()))
         .merge(export_preview_handler::router(pool.clone()))
         .merge(help_handler::router(pool.clone()))
         .merge(article_handler::router(pool.clone()))
+        .merge(sample_info_handler::router(pool.clone()))
+        .merge(sample_info_column_handler::router(pool.clone()))
+        .merge(sample_info_type_handler::router(pool.clone()))
+        .merge(sample_info_export_handler::router(pool.clone()))
+        .merge(sample_info_attachment_handler::router(pool.clone()))
+        .merge(user_handler::router(pool.clone(), config.clone()))
+        .merge(role_handler::router(pool.clone()))
+        .merge(rd_record_column_handler::router(pool.clone()))
 }

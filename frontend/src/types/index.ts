@@ -9,6 +9,18 @@ export interface ProjectGroup {
   rd_record_count?: number;
   show_in_work?: boolean;
   show_in_rd?: boolean;
+  division_id?: number | null;
+  division_name?: string | null;
+}
+
+// ========== v0.4.24: 事业部 ==========
+export interface Division {
+  id: number;
+  name: string;
+  sort_order: number;
+  lab_count?: number;
+  color?: string;
+  is_active?: boolean;
 }
 
 // v0.2.17: 卡片独立 — Project 简化
@@ -67,10 +79,12 @@ export interface WorkRecord {
   method_name?: string;
   method_type?: string;
   multiplier?: number;
+  division_id?: number | null;
   created_at: string;
   status?: string;
   sampler?: string;
   sampled_at?: string;
+  notes?: string;
 }
 
 export interface SampleRecord {
@@ -370,4 +384,171 @@ export interface HelpArticle {
 export interface Sheet10Row {
   method: string;
   quantity: number;
+}
+
+// ========== v0.4.22: 样品信息登记 ==========
+export interface SampleInfoRecord {
+  id: number;
+  status: string;
+  seq_no: number;
+  batch_no: string;
+  user_name: string;
+  lab_name: string;
+  project_name: string;
+  submitted_at: string;
+  detection_date: string;
+  main_components: string;
+  detection_type: string;
+  type_key: string;
+  division_id?: number | null;
+  division_name?: string | null;
+  quantity: number;
+  notes: string;
+  extra_fields?: Record<string, any>;
+  created_at: string;
+  updated_at?: string;
+}
+
+// ========== v0.4.26: 列自定义 ==========
+export interface SampleInfoColumn {
+  id: number;
+  field_key: string;
+  label: string;
+  data_type: 'text' | 'number' | 'select' | 'date' | 'attachment';
+  is_predefined: boolean;
+  is_required: boolean;
+  is_active: boolean;
+  width: number;
+  sort_order: number;
+  options: string | null;
+  show_in_list: boolean;
+  show_in_export: boolean;
+  show_in_form: boolean;
+  type_key?: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+// ========== v0.4.27-A: 列可见性 ==========
+export interface SampleInfoColumnVisibility {
+  id: number;
+  type_key: string;
+  column_id: number;
+  is_visible: boolean;
+}
+
+// ========== v0.4.27-A: 附件 ==========
+export interface SampleInfoAttachment {
+  id: number;
+  record_id: number;
+  file_name: string;
+  stored_name: string;
+  file_size: number;
+  file_type: string;
+  created_at: string;
+}
+
+// ========== v0.4.27-A: 用户 ==========
+export interface User {
+  id: number;
+  username: string;
+  division_id?: number | null;
+  division_name?: string | null;
+  group_id?: number | null;
+  group_name?: string | null;
+  is_admin: boolean;
+  is_active: boolean;
+  /** 关联角色 id（NULL 表示未分配角色） */
+  role_id?: number | null;
+  /** 角色对应的权限点集合 */
+  permissions?: string[];
+  created_at: string;
+  updated_at?: string | null;
+}
+
+// ========== v0.4.32: 用户分级（角色） ==========
+export interface Role {
+  id: number;
+  name: string;
+  description: string;
+  is_system: number; // 1=系统内置角色
+  sort_order: number;
+}
+
+export interface RoleWithPermissions {
+  id: number;
+  name: string;
+  description: string;
+  is_system: number;
+  sort_order: number;
+  permissions: string[];
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: User;
+}
+
+export interface UserUpdate {
+  username?: string;
+  password?: string;
+  division_id?: number | null;
+  group_id?: number | null;
+  is_admin?: boolean;
+  is_active?: boolean;
+  role_id?: number | null;
+}
+
+// v0.4.28: 事业部统计
+export interface DivisionStats {
+  division_id: number | null;
+  division_name: string;
+  total_quantity: number;
+  record_count: number;
+  coefficient_score: number;
+  lab_count: number;
+}
+
+// v0.4.28: 事业部导出预览
+export interface Sheet11Row {
+  division_name: string;
+  lab_count: number;
+  total_quantity: number;
+  record_count: number;
+  coefficient_score: number;
+}
+
+export interface ColumnVisibilityItem {
+  column_id: number;
+  is_visible: boolean;
+}
+
+// ========== v0.4.33: 研发送样列配置 ==========
+export interface RdRecordColumn {
+  id: number;
+  name: string;
+  label: string;
+  data_type: 'text' | 'number';
+  width: number;
+  sort_order: number;
+  is_predefined: boolean;
+  show_in_list: boolean;
+  show_in_form: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+export interface SampleInfoType {
+  id: number;
+  type_key: string;
+  label: string;
+  description: string;
+  color: string;
+  sort_order: number;
+  is_active: number;
+  created_at: string;
 }
