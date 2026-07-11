@@ -10,8 +10,10 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import SendIcon from '@mui/icons-material/Send';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Project, Method, MethodType, WorkRecord, ProjectGroup, Division, RdRecordColumn } from '../types';
+import type { FieldDef } from '../types/layout';
 import { getProjects, getMethods, createRdRecord, getMethodTypes, getGroups, getRdRecords, sampleRdRecord, getDivisions, getRdRecordColumns } from '../api/client';
 import { useUser } from '../UserContext';
+import EditablePageShell from '../components/EditablePageShell';
 
 const R = '2px';
 
@@ -47,6 +49,19 @@ const createEmptyRow = (defaultUser: string, defaultDivisionId: number | null | 
   notes: '',
 });
 
+// v0.4.36: 默认布局字段（API 加载失败时 fallback）
+const DEFAULT_LAYOUT_FIELDS: FieldDef[] = [
+  { key: 'user_name', type: 'text', label: '送样人', width: 120, required: false, visible: true, sort_order: 1, placeholder: '' },
+  { key: 'division_id', type: 'select', label: '部门', width: 140, required: false, visible: true, sort_order: 2, options: '从用户分组读取' },
+  { key: 'lab_name', type: 'text', label: '实验室', width: 150, required: false, visible: true, sort_order: 3, placeholder: '' },
+  { key: 'project_name', type: 'text', label: '项目', width: 160, required: false, visible: true, sort_order: 4, placeholder: '' },
+  { key: 'detection_type', type: 'select', label: '检测类型', width: 120, required: false, visible: true, sort_order: 5, options: '从检测类型表读取' },
+  { key: 'method_name', type: 'text', label: '方法', width: 200, required: false, visible: true, sort_order: 6, placeholder: '' },
+  { key: 'quantity', type: 'number', label: '数量', width: 80, required: false, visible: true, sort_order: 7 },
+  { key: 'batch_no', type: 'text', label: '批号', width: 100, required: false, visible: true, sort_order: 8, placeholder: '' },
+  { key: 'notes', type: 'text', label: '注意事项', width: 150, required: false, visible: true, sort_order: 9, placeholder: '' },
+];
+
 const SampleEntryPage: React.FC = () => {
   const { groupId } = useParams<{ groupId: string }>();
   const gid = Number(groupId) || 0;
@@ -60,6 +75,9 @@ const SampleEntryPage: React.FC = () => {
   const [divs, setDivs] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
   const [rdColumns, setRdColumns] = useState<RdRecordColumn[]>([]);
+
+  // v0.4.36: 页面布局字段
+  const [layoutFields, setLayoutFields] = useState<FieldDef[]>(DEFAULT_LAYOUT_FIELDS);
 
   const [dateTime, setDateTime] = useState(() => {
     const now = new Date();
@@ -270,331 +288,434 @@ const SampleEntryPage: React.FC = () => {
   // 表单列（show_in_form=true）
   const formColumns = rdColumns.filter(c => c.show_in_form);
 
+  // v0.4.36: 获取可见的布局字段（按 sort_order 排序）
+  const visibleLayoutFields = useMemo(() => {
+    return [...layoutFields]
+      .filter(f => f.visible)
+      .sort((a, b) => a.sort_order - b.sort_order);
+  }, [layoutFields]);
+
+  // v0.4.36: 渲染今日记录表格的单元格内容
+  const renderRecordCell = useCallback((rec: WorkRecord, field: FieldDef, idx: number): React.ReactNode => {
+    const status = rec.status || '待取样';
+    const isSampled = status === '已取样';
+
+    switch (field.key) {
+      case 'seq_no':
+        return <TableCell key={field.key} sx={{ fontSize: '0.8rem', textAlign: 'center' }}>{recordsPage * pageSize + idx + 1}</TableCell>;
+      case 'status':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+            <Typography variant="body2" sx={{
+              display: 'inline-block', px: 1, py: 0.3, borderRadius: R, fontSize: '0.75rem', fontWeight: 600,
+              bgcolor: isSampled ? '#c8e6c9' : '#fff9c4',
+              color: isSampled ? '#2e7d32' : '#f57f17',
+            }}>{status}</Typography>
+          </TableCell>
+        );
+      case 'submitted_at':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+            {rec.recorded_at ? rec.recorded_at.replace('T', ' ').substring(0, 19) : '-'}
+          </TableCell>
+        );
+      case 'lab_name':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', maxWidth: field.width || 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {labName || '-'}
+          </TableCell>
+        );
+      case 'project_name':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', maxWidth: field.width || 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {rec.project_name || '-'}
+          </TableCell>
+        );
+      case 'user_name':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+            {rec.user_name || '-'}
+          </TableCell>
+        );
+      case 'division_id':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+            {rec.division_id ? (divs.find(d => d.id === rec.division_id)?.name || '-') : '-'}
+          </TableCell>
+        );
+      case 'method_name':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', maxWidth: field.width || 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {rec.method_name || '-'}
+          </TableCell>
+        );
+      case 'detection_type':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+            {rec.method_type || '-'}
+          </TableCell>
+        );
+      case 'quantity':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {rec.quantity}
+          </TableCell>
+        );
+      case 'batch_no':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+            {rec.batch_no || '-'}
+          </TableCell>
+        );
+      case 'sampling_person':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+            {isSampled ? (
+              <Typography variant="body2" sx={{ color: '#2e7d32', fontWeight: 600 }}>{rec.sampler || '-'}</Typography>
+            ) : hasPermission('sample:collect') ? (
+              <Button variant="contained" size="small" sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' }, fontSize: '0.75rem', minWidth: 0, px: 1.5, py: 0 }}
+                onClick={(e) => { e.stopPropagation(); handleSample(rec); }}>
+                取样
+              </Button>
+            ) : (
+              <Typography variant="body2" sx={{ color: '#999' }}>待取样</Typography>
+            )}
+          </TableCell>
+        );
+      case 'sampling_time':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+            {rec.sampled_at ? rec.sampled_at.replace('T', ' ').substring(0, 19) : '-'}
+          </TableCell>
+        );
+      case 'notes':
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap', maxWidth: field.width || 130, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {rec.notes || '-'}
+          </TableCell>
+        );
+      default:
+        return (
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>-</TableCell>
+        );
+    }
+  }, [recordsPage, pageSize, labName, divs, hasPermission, handleSample]);
+
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
 
-  return (<Box sx={{ p: 2 }}>
-    {/* === 卡片式白色容器，绿色边框 — 与样品信息登记一致 === */}
-    <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: R, border: '2px solid #2e7d32', background: 'linear-gradient(145deg,#ffffff,#f1f8e9)' }}>
+  const pageContent = (
+    <Box sx={{ p: 2 }}>
+      {/* === 卡片式白色容器，绿色边框 — 与样品信息登记一致 === */}
+      <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: R, border: '2px solid #2e7d32', background: 'linear-gradient(145deg,#ffffff,#f1f8e9)' }}>
 
-      {/* 顶部标题栏 */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <Box>
-          <Typography variant="h6" fontWeight={700} sx={{ cursor: 'pointer' }} onClick={() => navigate('/sample')}>← 研发送样录入</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-            <Chip label={`实验室: ${labName}`} size="small" color="primary" variant="outlined" />
-            <Typography variant="body2" color="text.secondary">检测类型: {dt} · 序号: 自动生成</Typography>
+        {/* 顶部标题栏 */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Box>
+            <Typography variant="h6" fontWeight={700} sx={{ cursor: 'pointer' }} onClick={() => navigate('/sample')}>← 研发送样录入</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+              <Chip label={`实验室: ${labName}`} size="small" color="primary" variant="outlined" />
+              <Typography variant="body2" color="text.secondary">检测类型: {dt} · 序号: 自动生成</Typography>
+            </Box>
           </Box>
+          <Chip label={headerStatus} size="small" sx={{ bgcolor: headerStatus === '已取样' ? '#c8e6c9' : '#fff3e0', color: headerStatus === '已取样' ? '#2e7d32' : '#e65100', fontWeight: 500 }} />
         </Box>
-        <Chip label={headerStatus} size="small" sx={{ bgcolor: headerStatus === '已取样' ? '#c8e6c9' : '#fff3e0', color: headerStatus === '已取样' ? '#2e7d32' : '#e65100', fontWeight: 500 }} />
-      </Box>
 
-      {/* 公共送样时间（整单公共） */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="body2" sx={{ mb: 0.5 }}>送样时间（整单公共）</Typography>
-        <TextField
-          type="datetime-local"
-          size="small"
-          value={dateTime}
-          onChange={e => setDateTime(e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          sx={{ width: isMobile ? '100%' : 240, '& .MuiOutlinedInput-root': { borderRadius: R } }}
-        />
-      </Box>
+        {/* 公共送样时间（整单公共） */}
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ mb: 0.5 }}>送样时间（整单公共）</Typography>
+          <TextField
+            type="datetime-local"
+            size="small"
+            value={dateTime}
+            onChange={e => setDateTime(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: isMobile ? '100%' : 240, '& .MuiOutlinedInput-root': { borderRadius: R } }}
+          />
+        </Box>
 
-      {/* 操作按钮栏 */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-        <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ borderRadius: R }}>
-          添加行
-        </Button>
-        <Button variant="outlined" size="small" startIcon={<DeleteIcon />} color="error" onClick={deleteChecked} sx={{ borderRadius: R }}
-          disabled={!rows.some(r => r.checked)}>
-          删除选中
-        </Button>
-        <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={reset} sx={{ borderRadius: R }}>
-          重置
-        </Button>
-      </Box>
+        {/* 操作按钮栏 */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+          <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ borderRadius: R }}>
+            添加行
+          </Button>
+          <Button variant="outlined" size="small" startIcon={<DeleteIcon />} color="error" onClick={deleteChecked} sx={{ borderRadius: R }}
+            disabled={!rows.some(r => r.checked)}>
+            删除选中
+          </Button>
+          <Button variant="outlined" size="small" startIcon={<RefreshIcon />} onClick={reset} sx={{ borderRadius: R }}>
+            重置
+          </Button>
+        </Box>
 
-      {/* 多行表格 — 动态列 */}
-      {rows.length > 0 && (
-      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', mb: 2, overflowX: 'auto' }}>
-        <Table size="small" sx={{ minWidth: 1280 }} stickyHeader>
-          <TableHead>
-            <TableRow sx={{ bgcolor: 'rgba(230,81,0,0.06)' }}>
-              <TableCell padding="checkbox" sx={{ fontWeight: 700, fontSize: '0.8rem' }}>
-                <Checkbox size="small" checked={rows.length > 0 && rows.every(r => r.checked)}
-                  indeterminate={rows.some(r => r.checked) && !rows.every(r => r.checked)}
-                  onChange={() => {
-                    const allChecked = rows.every(r => r.checked);
-                    setRows(prev => prev.map(r => ({ ...r, checked: !allChecked })));
-                  }} />
-              </TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 40, textAlign: 'center' }}>序号</TableCell>
-              {formColumns.map(col => {
-                if (col.name === 'user_name') {
-                  return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 120 }}>{col.label}</TableCell>;
-                }
-                if (col.name === 'division_id') {
-                  return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 140 }}>{col.label}</TableCell>;
-                }
-                if (col.name === 'project_name') {
-                  return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 150 }}>{col.label}</TableCell>;
-                }
-                if (col.name === 'detection_type') {
-                  return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 110 }}>{col.label}</TableCell>;
-                }
-                if (col.name === 'method_name') {
-                  return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 180 }}>{col.label}</TableCell>;
-                }
-                if (col.name === 'quantity') {
-                  return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 80 }}>{col.label}</TableCell>;
-                }
-                if (col.name === 'batch_no') {
-                  return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 100 }}>{col.label}</TableCell>;
-                }
-                if (col.name === 'notes') {
-                  return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 130 }}>{col.label}</TableCell>;
-                }
-                return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 100 }}>{col.label}</TableCell>;
-              })}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((row, idx) => {
-              const availableTypes = getAvailableTypes(row.project_id);
-              const availableMethods = getAvailableMethods(row.project_id, row.method_type);
-              return (
-              <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 }, height: 48 }}>
-                <TableCell padding="checkbox">
-                  <Checkbox size="small" checked={row.checked} onChange={() => toggleCheck(row.id)} />
-                </TableCell>
-                <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>{idx + 1}</TableCell>
-                {formColumns.map(col => {
-                  if (col.name === 'user_name') {
-                    return (
-                      <TableCell key={col.name} sx={{ p: 0.5 }}>
-                        <TextField size="small" value={row.user_name} onChange={e => updateRow(row.id, { user_name: e.target.value })}
-                          sx={{ width: Math.min(col.width || 120, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
-                          inputProps={{ style: { padding: '2px 6px' } }} />
-                      </TableCell>
-                    );
-                  }
-                  if (col.name === 'division_id') {
-                    return (
-                      <TableCell key={col.name} sx={{ p: 0.5 }}>
-                        <TextField size="small" select value={row.division_id ?? ''}
-                          onChange={e => updateRow(row.id, { division_id: e.target.value ? Number(e.target.value) : null })}
-                          sx={{ width: Math.min(col.width || 140, 160), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
-                          SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
-                          <option value="">-</option>
-                          {divs.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                        </TextField>
-                      </TableCell>
-                    );
-                  }
-                  if (col.name === 'project_name') {
-                    return (
-                      <TableCell key={col.name} sx={{ p: 0.5 }}>
-                        <TextField size="small" select value={row.project_id ?? ''}
-                          onChange={e => {
-                            const pid = e.target.value ? Number(e.target.value) : null;
-                            const proj = projects.find(p => p.id === pid);
-                            updateRow(row.id, {
-                              project_id: pid,
-                              project_name: proj?.name || '',
-                              method_type: '',
-                              method_id: null,
-                              method_name: '',
-                            });
-                          }}
-                          sx={{ width: Math.min(col.width || 150, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
-                          SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
-                          <option value="">-</option>
-                          {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </TextField>
-                      </TableCell>
-                    );
-                  }
-                  if (col.name === 'detection_type') {
-                    return (
-                      <TableCell key={col.name} sx={{ p: 0.5 }}>
-                        <TextField size="small" select value={row.method_type}
-                          onChange={e => {
-                            const mt = e.target.value;
-                            updateRow(row.id, { method_type: mt, method_id: null, method_name: '' });
-                          }}
-                          sx={{ width: Math.min(col.width || 110, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
-                          SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}
-                          disabled={!row.project_id}>
-                          <option value="">-</option>
-                          {availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                        </TextField>
-                      </TableCell>
-                    );
-                  }
-                  if (col.name === 'method_name') {
-                    return (
-                      <TableCell key={col.name} sx={{ p: 0.5 }}>
-                        <TextField size="small" select value={row.method_id ?? ''}
-                          onChange={e => {
-                            const mid = e.target.value ? Number(e.target.value) : null;
-                            const meth = availableMethods.find(m => m.id === mid);
-                            updateRow(row.id, { method_id: mid, method_name: meth?.name || '' });
-                          }}
-                          sx={{ width: Math.min(col.width || 180, 220), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
-                          SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}
-                          disabled={!row.project_id}>
-                          <option value="">-</option>
-                          {availableMethods.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                        </TextField>
-                      </TableCell>
-                    );
-                  }
-                  if (col.name === 'quantity') {
-                    return (
-                      <TableCell key={col.name} sx={{ p: 0.5 }}>
-                        <TextField type="number" size="small" value={row.quantity}
-                          onChange={e => updateRow(row.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-                          sx={{ width: Math.min(col.width || 80, 100), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
-                          inputProps={{ min: 1, style: { padding: '2px 6px', textAlign: 'center' } }} />
-                      </TableCell>
-                    );
-                  }
-                  if (col.name === 'batch_no') {
-                    return (
-                      <TableCell key={col.name} sx={{ p: 0.5 }}>
-                        <TextField size="small" value={row.batch_no} onChange={e => updateRow(row.id, { batch_no: e.target.value })}
-                          sx={{ width: Math.min(col.width || 100, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
-                          inputProps={{ style: { padding: '2px 6px' } }} />
-                      </TableCell>
-                    );
-                  }
-                  if (col.name === 'notes') {
-                    return (
-                      <TableCell key={col.name} sx={{ p: 0.5 }}>
-                        <TextField size="small" value={row.notes} onChange={e => updateRow(row.id, { notes: e.target.value })}
-                          sx={{ minWidth: Math.min(col.width || 130, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
-                          inputProps={{ style: { padding: '2px 6px' } }} />
-                      </TableCell>
-                    );
-                  }
-                  // 其他动态列（占位）
-                  return <TableCell key={col.name} sx={{ p: 0.5, fontSize: '0.8rem' }}>-</TableCell>;
-                })}
-              </TableRow>
-            );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      )}
-
-      {/* 底栏：提交按钮 */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-        <Button variant="contained" size="small" startIcon={<SendIcon />} onClick={handleSubmit}
-          sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}
-          disabled={rows.length === 0}>
-          提交登记（{rows.length} 行）
-        </Button>
-      </Box>
-    </Paper>
-
-    {/* 今日记录 */}
-    <Box sx={{ mt: 3 }}>
-      <Typography variant="h6" fontWeight={600} sx={{ mb: 1.5 }}>
-        今日记录
-        {recordsTotal > 0 && <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>（共 {recordsTotal} 条）</Typography>}
-      </Typography>
-      {recordsLoading && todayRecords.length === 0 ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={28} /></Box>
-      ) : todayRecords.length === 0 ? (
-        <Typography color="text.secondary" textAlign="center" sx={{ py: 3, fontSize: '0.875rem' }}>今天暂无录入记录</Typography>
-      ) : (
-        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', overflowX: 'auto' }}>
-          <Table size="small" sx={{ minWidth: 960 }}>
+        {/* 多行表格 — 动态列 */}
+        {rows.length > 0 && (
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', mb: 2, overflowX: 'auto' }}>
+          <Table size="small" sx={{ minWidth: 1280 }} stickyHeader>
             <TableHead>
               <TableRow sx={{ bgcolor: 'rgba(230,81,0,0.06)' }}>
+                <TableCell padding="checkbox" sx={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                  <Checkbox size="small" checked={rows.length > 0 && rows.every(r => r.checked)}
+                    indeterminate={rows.some(r => r.checked) && !rows.every(r => r.checked)}
+                    onChange={() => {
+                      const allChecked = rows.every(r => r.checked);
+                      setRows(prev => prev.map(r => ({ ...r, checked: !allChecked })));
+                    }} />
+                </TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 40, textAlign: 'center' }}>序号</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>状态</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>送样时间</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>实验室</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>研发项目</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>送样人</TableCell>
-                {rdColumns.filter(c => c.name === 'method_name' || c.name === 'detection_type' || c.name === 'quantity' || c.name === 'batch_no' || c.name === 'sampling_person' || c.name === 'sampling_time' || c.name === 'notes').map(col => (
-                  <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{col.label}</TableCell>
-                ))}
+                {formColumns.map(col => {
+                  if (col.name === 'user_name') {
+                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 120 }}>{col.label}</TableCell>;
+                  }
+                  if (col.name === 'division_id') {
+                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 140 }}>{col.label}</TableCell>;
+                  }
+                  if (col.name === 'project_name') {
+                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 150 }}>{col.label}</TableCell>;
+                  }
+                  if (col.name === 'detection_type') {
+                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 110 }}>{col.label}</TableCell>;
+                  }
+                  if (col.name === 'method_name') {
+                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 180 }}>{col.label}</TableCell>;
+                  }
+                  if (col.name === 'quantity') {
+                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 80 }}>{col.label}</TableCell>;
+                  }
+                  if (col.name === 'batch_no') {
+                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 100 }}>{col.label}</TableCell>;
+                  }
+                  if (col.name === 'notes') {
+                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 130 }}>{col.label}</TableCell>;
+                  }
+                  return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 100 }}>{col.label}</TableCell>;
+                })}
               </TableRow>
             </TableHead>
             <TableBody>
-              {todayRecords.map((rec, idx) => {
-                const status = rec.status || '待取样';
-                const isSampled = status === '已取样';
+              {rows.map((row, idx) => {
+                const availableTypes = getAvailableTypes(row.project_id);
+                const availableMethods = getAvailableMethods(row.project_id, row.method_type);
                 return (
+                <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 }, height: 48 }}>
+                  <TableCell padding="checkbox">
+                    <Checkbox size="small" checked={row.checked} onChange={() => toggleCheck(row.id)} />
+                  </TableCell>
+                  <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>{idx + 1}</TableCell>
+                  {formColumns.map(col => {
+                    if (col.name === 'user_name') {
+                      return (
+                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                          <TextField size="small" value={row.user_name} onChange={e => updateRow(row.id, { user_name: e.target.value })}
+                            sx={{ width: Math.min(col.width || 120, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            inputProps={{ style: { padding: '2px 6px' } }} />
+                        </TableCell>
+                      );
+                    }
+                    if (col.name === 'division_id') {
+                      return (
+                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                          <TextField size="small" select value={row.division_id ?? ''}
+                            onChange={e => updateRow(row.id, { division_id: e.target.value ? Number(e.target.value) : null })}
+                            sx={{ width: Math.min(col.width || 140, 160), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
+                            <option value="">-</option>
+                            {divs.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                          </TextField>
+                        </TableCell>
+                      );
+                    }
+                    if (col.name === 'project_name') {
+                      return (
+                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                          <TextField size="small" select value={row.project_id ?? ''}
+                            onChange={e => {
+                              const pid = e.target.value ? Number(e.target.value) : null;
+                              const proj = projects.find(p => p.id === pid);
+                              updateRow(row.id, {
+                                project_id: pid,
+                                project_name: proj?.name || '',
+                                method_type: '',
+                                method_id: null,
+                                method_name: '',
+                              });
+                            }}
+                            sx={{ width: Math.min(col.width || 150, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
+                            <option value="">-</option>
+                            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </TextField>
+                        </TableCell>
+                      );
+                    }
+                    if (col.name === 'detection_type') {
+                      return (
+                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                          <TextField size="small" select value={row.method_type}
+                            onChange={e => {
+                              const mt = e.target.value;
+                              updateRow(row.id, { method_type: mt, method_id: null, method_name: '' });
+                            }}
+                            sx={{ width: Math.min(col.width || 110, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}
+                            disabled={!row.project_id}>
+                            <option value="">-</option>
+                            {availableTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                          </TextField>
+                        </TableCell>
+                      );
+                    }
+                    if (col.name === 'method_name') {
+                      return (
+                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                          <TextField size="small" select value={row.method_id ?? ''}
+                            onChange={e => {
+                              const mid = e.target.value ? Number(e.target.value) : null;
+                              const meth = availableMethods.find(m => m.id === mid);
+                              updateRow(row.id, { method_id: mid, method_name: meth?.name || '' });
+                            }}
+                            sx={{ width: Math.min(col.width || 180, 220), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}
+                            disabled={!row.project_id}>
+                            <option value="">-</option>
+                            {availableMethods.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                          </TextField>
+                        </TableCell>
+                      );
+                    }
+                    if (col.name === 'quantity') {
+                      return (
+                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                          <TextField type="number" size="small" value={row.quantity}
+                            onChange={e => updateRow(row.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
+                            sx={{ width: Math.min(col.width || 80, 100), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            inputProps={{ min: 1, style: { padding: '2px 6px', textAlign: 'center' } }} />
+                        </TableCell>
+                      );
+                    }
+                    if (col.name === 'batch_no') {
+                      return (
+                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                          <TextField size="small" value={row.batch_no} onChange={e => updateRow(row.id, { batch_no: e.target.value })}
+                            sx={{ width: Math.min(col.width || 100, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            inputProps={{ style: { padding: '2px 6px' } }} />
+                        </TableCell>
+                      );
+                    }
+                    if (col.name === 'notes') {
+                      return (
+                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                          <TextField size="small" value={row.notes} onChange={e => updateRow(row.id, { notes: e.target.value })}
+                            sx={{ minWidth: Math.min(col.width || 130, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            inputProps={{ style: { padding: '2px 6px' } }} />
+                        </TableCell>
+                      );
+                    }
+                    // 其他动态列（占位）
+                    return <TableCell key={col.name} sx={{ p: 0.5, fontSize: '0.8rem' }}>-</TableCell>;
+                  })}
+                </TableRow>
+              );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        )}
+
+        {/* 底栏：提交按钮 */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <Button variant="contained" size="small" startIcon={<SendIcon />} onClick={handleSubmit}
+            sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}
+            disabled={rows.length === 0}>
+            提交登记（{rows.length} 行）
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* 今日记录 — v0.4.36: 布局字段驱动 */}
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="h6" fontWeight={600} sx={{ mb: 1.5 }}>
+          今日记录
+          {recordsTotal > 0 && <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>（共 {recordsTotal} 条）</Typography>}
+        </Typography>
+        {recordsLoading && todayRecords.length === 0 ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={28} /></Box>
+        ) : todayRecords.length === 0 ? (
+          <Typography color="text.secondary" textAlign="center" sx={{ py: 3, fontSize: '0.875rem' }}>今天暂无录入记录</Typography>
+        ) : (
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 960 }}>
+              <TableHead>
+                <TableRow sx={{ bgcolor: 'rgba(230,81,0,0.06)' }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 40, textAlign: 'center' }}>序号</TableCell>
+                  {visibleLayoutFields.map(field => (
+                    <TableCell
+                      key={field.key}
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        whiteSpace: 'nowrap',
+                        minWidth: field.width || 100,
+                      }}
+                    >
+                      {field.label}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {todayRecords.map((rec, idx) => (
                   <TableRow key={rec.id} hover
                     onClick={() => setSelectedRecordId(rec.id)}
                     selected={selectedRecordId === rec.id}
                     sx={{ '&:last-child td': { borderBottom: 0 }, cursor: 'pointer', '&.Mui-selected': { bgcolor: 'rgba(46,125,50,0.08)' } }}>
                     <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>{recordsPage * pageSize + idx + 1}</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                      <Typography variant="body2" sx={{
-                        display: 'inline-block', px: 1, py: 0.3, borderRadius: R, fontSize: '0.75rem', fontWeight: 600,
-                        bgcolor: isSampled ? '#c8e6c9' : '#fff9c4',
-                        color: isSampled ? '#2e7d32' : '#f57f17',
-                      }}>{status}</Typography>
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                      {rec.recorded_at ? rec.recorded_at.replace('T', ' ').substring(0, 19) : '-'}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{labName || '-'}</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.project_name || '-'}</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{rec.user_name || '-'}</TableCell>
-                    {rdColumns.filter(c => c.name === 'method_name' || c.name === 'detection_type' || c.name === 'quantity' || c.name === 'batch_no' || c.name === 'sampling_person' || c.name === 'sampling_time' || c.name === 'notes').map(col => {
-                      if (col.name === 'method_name') return <TableCell key={col.name} sx={{ fontSize: '0.8rem', maxWidth: col.width || 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rec.method_name || '-'}</TableCell>;
-                      if (col.name === 'detection_type') return <TableCell key={col.name} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{rec.method_type || '-'}</TableCell>;
-                      if (col.name === 'quantity') return <TableCell key={col.name} sx={{ fontSize: '0.8rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{rec.quantity}</TableCell>;
-                      if (col.name === 'batch_no') return <TableCell key={col.name} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{rec.batch_no || '-'}</TableCell>;
-                      if (col.name === 'sampling_person') return (
-                        <TableCell key={col.name} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                          {isSampled ? (
-                            <Typography variant="body2" sx={{ color: '#2e7d32', fontWeight: 600 }}>{rec.sampler || '-'}</Typography>
-                          ) : hasPermission('sample:collect') ? (
-                            <Button variant="contained" size="small" sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' }, fontSize: '0.75rem', minWidth: 0, px: 1.5, py: 0 }}
-                              onClick={() => handleSample(rec)}>
-                              取样
-                            </Button>
-                          ) : (
-                            <Typography variant="body2" sx={{ color: '#999' }}>待取样</Typography>
-                          )}
-                        </TableCell>
-                      );
-                      if (col.name === 'sampling_time') return <TableCell key={col.name} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{rec.sampled_at ? rec.sampled_at.replace('T', ' ').substring(0, 19) : '-'}</TableCell>;
-                      return <TableCell key={col.name} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>-</TableCell>;
-                    })}
+                    {visibleLayoutFields.map(field => renderRecordCell(rec, field, idx))}
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          {recordsTotal > pageSize && (
-            <TablePagination
-              component="div"
-              count={recordsTotal}
-              page={recordsPage}
-              onPageChange={handleRecordsPageChange}
-              rowsPerPage={pageSize}
-              rowsPerPageOptions={[pageSize]}
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count}`}
-              sx={{ '& .MuiTablePagination-toolbar': { minHeight: 40 }, '& .MuiTablePagination-selectLabel': { fontSize: '0.75rem' }, '& .MuiTablePagination-displayedRows': { fontSize: '0.75rem' } }}
-            />
-          )}
-        </TableContainer>
-      )}
-    </Box>
+                ))}
+              </TableBody>
+            </Table>
+            {recordsTotal > pageSize && (
+              <TablePagination
+                component="div"
+                count={recordsTotal}
+                page={recordsPage}
+                onPageChange={handleRecordsPageChange}
+                rowsPerPage={pageSize}
+                rowsPerPageOptions={[pageSize]}
+                labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count}`}
+                sx={{ '& .MuiTablePagination-toolbar': { minHeight: 40 }, '& .MuiTablePagination-selectLabel': { fontSize: '0.75rem' }, '& .MuiTablePagination-displayedRows': { fontSize: '0.75rem' } }}
+              />
+            )}
+          </TableContainer>
+        )}
+      </Box>
 
-    <Snackbar open={!!snackMsg} autoHideDuration={3000} onClose={() => setSnackMsg('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-      <Alert severity={snackErr ? 'error' : 'success'} sx={{ borderRadius: R }} onClose={() => setSnackMsg('')}>{snackMsg}</Alert>
-    </Snackbar>
-  </Box>);
+      <Snackbar open={!!snackMsg} autoHideDuration={3000} onClose={() => setSnackMsg('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity={snackErr ? 'error' : 'success'} sx={{ borderRadius: R }} onClose={() => setSnackMsg('')}>{snackMsg}</Alert>
+      </Snackbar>
+    </Box>
+  );
+
+  return (
+    <EditablePageShell
+      pageKey="sample_entry"
+      defaultFields={DEFAULT_LAYOUT_FIELDS}
+      onFieldsLoaded={setLayoutFields}
+      renderField={(field, _isEditMode) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: '#333', minWidth: 80, fontSize: '0.8rem' }}>
+            {field.label}
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#999', fontSize: '0.75rem' }}>
+            [{field.type}] {field.width}px
+            {field.required ? ' *必填' : ''}
+          </Typography>
+        </Box>
+      )}
+    >
+      {pageContent}
+    </EditablePageShell>
+  );
 };
 
 export default SampleEntryPage;
