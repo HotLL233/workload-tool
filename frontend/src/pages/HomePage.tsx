@@ -6,6 +6,7 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useUser } from '../UserContext';
 import type { HomeCard } from '../types';
+import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
 
 const R = '2px';
 
@@ -39,7 +40,8 @@ const HomePage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { hasPermission, isLoggedIn } = useUser();
-  const [cards, setCards] = useState<HomeCard[]>([]);
+  // 兜底：默认卡片（fetch 失败时保证有内容）
+  const [cards, setCards] = useState<HomeCard[]>(defaultCards);
   const [logoText, setLogoText] = useState('知微');
   const [primaryColor, setPrimaryColor] = useState('#667eea');
 
@@ -48,10 +50,20 @@ const HomePage: React.FC = () => {
     fetch('/api/settings/home-cards')
       .then(r => r.json())
       .then(d => {
-        if (d.data?.value) {
-          try { setCards(JSON.parse(d.data.value)); } catch {}
-        } else if (d.data?.key) {
-          try { setCards(JSON.parse(d.data.value)); } catch {}
+        const raw = d?.data?.value;
+        if (raw) {
+          try {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setCards(parsed);
+            } else {
+              setCards(defaultCards);
+            }
+          } catch {
+            setCards(defaultCards);
+          }
+        } else {
+          setCards(defaultCards);
         }
       })
       .catch(() => { setCards(defaultCards); });
@@ -60,9 +72,10 @@ const HomePage: React.FC = () => {
     fetch('/api/settings/theme')
       .then(r => r.json())
       .then(d => {
-        if (d.data?.value) {
+        const raw = d?.data?.value;
+        if (raw) {
           try {
-            const t = JSON.parse(d.data.value);
+            const t = typeof raw === 'string' ? JSON.parse(raw) : raw;
             if (t.logoText) setLogoText(t.logoText);
             if (t.primaryColor) setPrimaryColor(t.primaryColor);
           } catch {}
@@ -74,13 +87,19 @@ const HomePage: React.FC = () => {
   const visibleCards = cards.filter((c) => hasPermission(c.perm));
 
   return (
+    <PageEditProvider>
     <Box sx={{ maxWidth: 900, mx: 'auto', mt: { xs: 2, md: 6 } }}>
+      {/* 编辑模式切换 */}
+      <PageEditToggle />
+
       {/* Header */}
+      <PageSectionEditor pageKey="home" sectionKey="brand-title" defaultLabel="知微">
       <Box sx={{ textAlign: 'center', mb: 5 }}>
         <Typography variant="h3" fontWeight={800} sx={{ fontFamily: '"方正舒体", "FZSJ-KAFJT", "KaiTi", "STKaiti", "cursive", serif', color: primaryColor, mb: 1, fontSize: { xs: '2.8rem', md: '4rem' } }}>
           {logoText}
         </Typography>
       </Box>
+      </PageSectionEditor>
 
       {visibleCards.length === 0 ? (
         <Box sx={{ textAlign: 'center', mt: 6 }}>
@@ -96,6 +115,7 @@ const HomePage: React.FC = () => {
           )}
         </Box>
       ) : (
+        <PageSectionEditor pageKey="home" sectionKey="entry-cards">
         <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 3, flexWrap: 'wrap', justifyContent: 'center', alignItems: isMobile ? 'center' : undefined, mb: 4 }}>
           {visibleCards.map((c) => (
             <Paper
@@ -122,12 +142,16 @@ const HomePage: React.FC = () => {
             </Paper>
           ))}
         </Box>
+        </PageSectionEditor>
       )}
 
+      <PageSectionEditor pageKey="home" sectionKey="footer-text" defaultLabel="选择功能入口，开始操作">
       <Box sx={{ textAlign: 'center' }}>
         <Typography variant="body1" color="text.secondary">选择功能入口，开始操作</Typography>
       </Box>
+      </PageSectionEditor>
     </Box>
+    </PageEditProvider>
   );
 };
 export default HomePage;

@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import type { WorkRecord, RdRecordColumn, Project, Method } from '../types';
 import { getRdRecords, sampleRdRecord, getGroups, getRdRecordColumns, getProjects, getMethods, updateRdRecord } from '../api/client';
 import { useUser } from '../UserContext';
+import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
 
 const R = '2px';
 
@@ -180,19 +181,28 @@ const RdRecordsPage: React.FC = () => {
     return methods.filter(m => (proj.method_ids || []).includes(m.id));
   };
 
-  return (<Box>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-      <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: 'rgba(230,81,0,0.08)', '&:hover': { bgcolor: 'rgba(230,81,0,0.15)' } }}>
-        <ArrowBackIcon />
-      </IconButton>
-      <Typography variant="h5" fontWeight={700}>研发送样记录</Typography>
-    </Box>
+  return (<PageEditProvider>
+    <Box>
+      <PageEditToggle />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+        <PageSectionEditor pageKey="rd_records" sectionKey="page-title" defaultLabel="研发送样记录">
+        <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: 'rgba(230,81,0,0.08)', '&:hover': { bgcolor: 'rgba(230,81,0,0.15)' } }}>
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h5" fontWeight={700}>研发送样记录</Typography>
+        </PageSectionEditor>
+      </Box>
 
     {loading && records.length === 0 ? (
+      <PageSectionEditor pageKey="rd_records" sectionKey="table-columns">
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+      </PageSectionEditor>
     ) : records.length === 0 ? (
+      <PageSectionEditor pageKey="rd_records" sectionKey="table-columns">
       <Typography color="text.secondary" textAlign="center" sx={{ py: 6, fontSize: '0.875rem' }}>暂无记录</Typography>
+      </PageSectionEditor>
     ) : (
+      <PageSectionEditor pageKey="rd_records" sectionKey="table-columns">
       <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', '& .MuiPaper-root': { borderRadius: R }, overflowX: 'auto' }}>
         <Table size="small" sx={{ minWidth: columns.length * 100 + 60 }}>
           <TableHead>
@@ -359,11 +369,13 @@ const RdRecordsPage: React.FC = () => {
           />
         )}
       </TableContainer>
+      </PageSectionEditor>
     )}
 
     <Snackbar open={!!snackMsg} autoHideDuration={3000} onClose={() => setSnackMsg('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
       <Alert severity={snackErr ? 'error' : 'success'} sx={{ borderRadius: R }} onClose={() => setSnackMsg('')}>{snackMsg}</Alert>
     </Snackbar>
-  </Box>);
+  </Box>
+  </PageEditProvider>);
 };
 export default RdRecordsPage;

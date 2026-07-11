@@ -22,6 +22,7 @@ import {
 } from '../api/client';
 import type { SampleInfoRecord, SampleInfoType, Division, SampleInfoColumn, SampleInfoAttachment } from '../types';
 import { useUser } from '../UserContext';
+import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
 
 const R = '2px';
 const PAGE_SIZE = 20;
@@ -384,14 +385,19 @@ const SampleInfoEntry: React.FC = () => {
   };
 
   return (
+    <PageEditProvider>
     <Box sx={{ maxWidth: 1100, mx: 'auto', mt: { xs: 1, md: 3 }, px: { xs: 1, md: 2 } }}>
+      <PageEditToggle />
       {/* 顶部 */}
+      <PageSectionEditor pageKey="sample_info_entry" sectionKey="page-title" defaultLabel="样品信息登记">
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
         <IconButton onClick={() => n('/sample-info')} size="small"><ArrowBackIcon /></IconButton>
         <Typography variant="h5" fontWeight={700} color="#2e7d32">样品信息登记</Typography>
       </Box>
+      </PageSectionEditor>
 
       {/* === 部分 A：登记表单 === */}
+      <PageSectionEditor pageKey="sample_info_entry" sectionKey="form-fields">
       <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: R, border: '2px solid #2e7d32', background: 'linear-gradient(145deg,#ffffff,#f1f8e9)' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box>
@@ -477,11 +483,14 @@ const SampleInfoEntry: React.FC = () => {
               重置
             </Button>
           </Box>
+          <PageSectionEditor pageKey="sample_info_entry" sectionKey="submit-btn" defaultLabel="提交">
           <Button variant="contained" onClick={doSubmit} sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}>
             提交登记（{rows.length} 行）
           </Button>
+          </PageSectionEditor>
         </Box>
       </Paper>
+      </PageSectionEditor>
 
       {/* === 部分 B：记录列表 === */}
       <Paper elevation={0} sx={{ p: { xs: 1, md: 2 }, borderRadius: R, border: '1px solid #e0e0e0' }}>
@@ -660,6 +669,7 @@ const SampleInfoEntry: React.FC = () => {
         <Alert severity={snack.sev} sx={{ width: '100%' }} onClose={() => setSnack(s => ({ ...s, open: false }))}>{snack.msg}</Alert>
       </Snackbar>
     </Box>
+    </PageEditProvider>
   );
 };
 export default SampleInfoEntry;

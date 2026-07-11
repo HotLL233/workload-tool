@@ -18,6 +18,7 @@ import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import DateRangePicker from "../components/DateRangePicker";
 import PreviewTable from "../components/PreviewTable";
+import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
 import { getSampleInfoStats, getSampleInfoRecords, exportSampleInfo, getSampleInfoTypes } from "../api/client";
 import type { SampleInfoRecord, SampleInfoType } from "../types";
 
@@ -403,19 +404,24 @@ const SampleInfoStatsPage: React.FC = () => {
   };
 
   return (
+    <PageEditProvider>
     <Box sx={{ maxWidth: 1000, mx: 'auto', mt: { xs: 1, md: 3 }, px: { xs: 1, md: 2 } }}>
+      <PageEditToggle />
       {/* 头部 */}
+      <PageSectionEditor pageKey="sample_info_stats" sectionKey="page-title" defaultLabel="样品信息登记统计">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
         <IconButton onClick={() => window.history.back()} size="small"><ArrowBackIcon /></IconButton>
         <Typography variant="h5" fontWeight={700} color="#2e7d32" sx={{ flex: 1 }}>样品信息登记统计</Typography>
         <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={doExport}
           sx={{ borderRadius: R, borderColor: '#2e7d32', color: '#2e7d32' }}>导出 Excel</Button>
       </Box>
+      </PageSectionEditor>
 
       {/* 日期区间 */}
       <DateRangePicker startDate={s} endDate={e} onStartChange={setS} onEndChange={setE} />
 
       {/* 摘要卡片 */}
+      <PageSectionEditor pageKey="sample_info_stats" sectionKey="stat-cards">
       {stats && (
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
           <Box sx={{ textAlign: 'center', minWidth: 90, p: 1.5, bgcolor: '#fff', borderRadius: R, border: '1px solid #e0e0e0', flex: '1 0 auto' }}>
@@ -448,12 +454,15 @@ const SampleInfoStatsPage: React.FC = () => {
           ))}
         </Box>
       </Box>
-
+      </PageSectionEditor>
+      <PageSectionEditor pageKey="sample_info_stats" sectionKey="charts">
       {/* 详情区域 */}
       {er && <Alert severity="error" sx={{ mb: 2, borderRadius: R }}>{er}</Alert>}
       {ld && <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress size={32} /></Box>}
       {!ld && ac && renderDetail()}
+    </PageSectionEditor>
     </Box>
+    </PageEditProvider>
   );
 };
 export default SampleInfoStatsPage;

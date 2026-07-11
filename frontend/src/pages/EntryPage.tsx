@@ -10,6 +10,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { Project, Method, MethodType, WorkRecord, ProjectGroup } from '../types';
 import { getProjects, getMethods, createRecord, getMethodTypes, getGroups, getRecords } from '../api/client';
 import { useUser } from '../UserContext';
+import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
 
 const R = '2px';
 
@@ -174,16 +175,21 @@ const EntryPage: React.FC = () => {
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
 
-  return (<Box>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-      <IconButton onClick={() => navigate('/workload')} sx={{ bgcolor: 'rgba(30,136,229,0.08)', '&:hover': { bgcolor: 'rgba(30,136,229,0.15)' } }}>
-        <ArrowBackIcon />
-      </IconButton>
-      <Box><Typography variant="h5" fontWeight={700}>工作量录入</Typography><Typography variant="caption" color="text.secondary">选择检测方法并录入数量</Typography>{labName && <Chip label={`实验室: ${labName}`} size="small" color="primary" variant="outlined" sx={{ ml: 1, borderRadius: R, height: 22, fontSize: '0.7rem' }} />}</Box>
-    </Box>
+  return (<PageEditProvider>
+    <Box>
+      <PageEditToggle />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+        <PageSectionEditor pageKey="entry" sectionKey="page-title" defaultLabel="检测录入">
+        <IconButton onClick={() => navigate('/workload')} sx={{ bgcolor: 'rgba(30,136,229,0.08)', '&:hover': { bgcolor: 'rgba(30,136,229,0.15)' } }}>
+          <ArrowBackIcon />
+        </IconButton>
+        <Box><Typography variant="h5" fontWeight={700}>工作量录入</Typography><Typography variant="caption" color="text.secondary">选择检测方法并录入数量</Typography>{labName && <Chip label={`实验室: ${labName}`} size="small" color="primary" variant="outlined" sx={{ ml: 1, borderRadius: R, height: 22, fontSize: '0.7rem' }} />}</Box>
+        </PageSectionEditor>
+      </Box>
 
-    {/* 用户 & 时间 */}
-    <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
+      <PageSectionEditor pageKey="entry" sectionKey="form-fields">
+      {/* 用户 & 时间 */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
       <TextField label="检测人" size="small" value={userName} onChange={e => setUserName(e.target.value)} sx={{ width: isMobile ? '100%' : 140, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
       <TextField label="日期时间" type="datetime-local" size="small" value={dateTime} onChange={e => setDateTime(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: isMobile ? '100%' : 200, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
     </Box>
@@ -217,6 +223,7 @@ const EntryPage: React.FC = () => {
       : filtered.map(m => (
         <MethodRow key={m.id} method={m} linkedProjectName={projects.find(p => (p.method_ids || []).includes(m.id))?.name} onSubmit={handleSubmit} isMobile={isMobile} />
       ))}
+      </PageSectionEditor>
 
     {/* 今日记录 */}
     <Box sx={{ mt: 3 }}>
@@ -283,7 +290,8 @@ const EntryPage: React.FC = () => {
     <Snackbar open={!!snackMsg} autoHideDuration={3000} onClose={() => setSnackMsg('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
       <Alert severity={snackErr ? 'error' : 'success'} sx={{ borderRadius: R }} onClose={() => setSnackMsg('')}>{snackMsg}</Alert>
     </Snackbar>
-  </Box>);
+  </Box>
+  </PageEditProvider>);
 };
 
 /** 内联方法行组件 — 显示方法名、类型标签、系数、关联项目名，并提供录入入口 */

@@ -7,6 +7,7 @@ import ScienceIcon from '@mui/icons-material/Science';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import { getSampleInfoTypes } from '../api/client';
 import type { SampleInfoType } from '../types';
+import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
 
 const R = '2px';
 
@@ -33,8 +34,11 @@ const SampleInfoHome: React.FC = () => {
   }, []);
 
   return (
+    <PageEditProvider>
     <Box sx={{ maxWidth: 900, mx: 'auto', mt: { xs: 1, md: 3 }, px: { xs: 1, md: 2 } }}>
+      <PageEditToggle />
       {/* 顶部标题栏 */}
+      <PageSectionEditor pageKey="sample_info_home" sectionKey="page-title" defaultLabel="样品信息登记">
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
         <IconButton onClick={() => n('/')} size="small"><ArrowBackIcon /></IconButton>
         <Box sx={{ flex: 1 }}>
@@ -46,6 +50,7 @@ const SampleInfoHome: React.FC = () => {
           查看统计
         </Button>
       </Box>
+      </PageSectionEditor>
 
       {loading ? (
         <Box sx={{ textAlign: 'center', py: 8 }}><CircularProgress size={36} /></Box>
@@ -58,6 +63,7 @@ const SampleInfoHome: React.FC = () => {
       ) : (
         <>
           {/* 大类卡片（从数据库读取） */}
+          <PageSectionEditor pageKey="sample_info_home" sectionKey="type-cards">
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {cats.map((cat) => (
               <Grid item xs={12} sm={6} key={cat.type_key}>
@@ -81,6 +87,7 @@ const SampleInfoHome: React.FC = () => {
               </Grid>
             ))}
           </Grid>
+          </PageSectionEditor>
         </>
       )}
 
@@ -101,6 +108,7 @@ const SampleInfoHome: React.FC = () => {
         </Paper>
       </Box>
     </Box>
+    </PageEditProvider>
   );
 };
 export default SampleInfoHome;

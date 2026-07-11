@@ -700,6 +700,17 @@ fn seed_default_settings(conn: &rusqlite::Connection) -> Result<()> {
         ("stats_cards", r##"[{"key":"total","label":"总数量","color":"#667eea","gradient":"linear-gradient(135deg,#667eea,#764ba2)"},{"key":"records","label":"总记录数","color":"#43a047","gradient":"linear-gradient(135deg,#43a047,#1b5e20)"},{"key":"users","label":"参与人数","color":"#fb8c00","gradient":"linear-gradient(135deg,#fb8c00,#e65100)"}]"##),
         // v0.4.36: 页面布局 — sample_entry 今日记录表格列定义
         ("layout_sample_entry", r##"[{"key":"user_name","type":"text","label":"送样人","width":120,"required":false,"visible":true,"sort_order":1,"placeholder":""},{"key":"division_id","type":"select","label":"部门","width":140,"required":false,"visible":true,"sort_order":2,"options":"从用户分组读取"},{"key":"lab_name","type":"text","label":"实验室","width":150,"required":false,"visible":true,"sort_order":3,"placeholder":""},{"key":"project_name","type":"text","label":"项目","width":160,"required":false,"visible":true,"sort_order":4,"placeholder":""},{"key":"detection_type","type":"select","label":"检测类型","width":120,"required":false,"visible":true,"sort_order":5,"options":"从检测类型表读取"},{"key":"method_name","type":"text","label":"方法","width":200,"required":false,"visible":true,"sort_order":6,"placeholder":""},{"key":"quantity","type":"number","label":"数量","width":80,"required":false,"visible":true,"sort_order":7},{"key":"batch_no","type":"text","label":"批号","width":100,"required":false,"visible":true,"sort_order":8,"placeholder":""},{"key":"notes","type":"text","label":"注意事项","width":150,"required":false,"visible":true,"sort_order":9,"placeholder":""}]"##),
+        // v0.4.37: 全站 UI 可视化编辑 — 各页面 section 布局
+        ("layout_home", r##"{"sections":{"brand-title":{"visible":true,"label":"知微","color":"#667eea"},"entry-cards":{"visible":true},"footer-text":{"visible":true,"label":"选择功能入口，开始操作"}}}"##),
+        ("layout_sample_entry", r##"{"sections":{"page-title":{"visible":true,"label":"研发送样录入"},"table-columns":{"visible":true},"submit-btn":{"visible":true,"label":"提交送样"},"reset-btn":{"visible":true,"label":"重置"}}}"##),
+        ("layout_sample_portal", r##"{"sections":{"page-title":{"visible":true,"label":"研发送样"},"division-chips":{"visible":true},"group-cards":{"visible":true}}}"##),
+        ("layout_workload_portal", r##"{"sections":{"page-title":{"visible":true,"label":"分析检测"},"division-chips":{"visible":true},"group-cards":{"visible":true}}}"##),
+        ("layout_sample_info_entry", r##"{"sections":{"page-title":{"visible":true,"label":"样品信息登记"},"form-fields":{"visible":true},"submit-btn":{"visible":true,"label":"提交"}}}"##),
+        ("layout_sample_info_home", r##"{"sections":{"page-title":{"visible":true,"label":"样品信息登记"},"type-cards":{"visible":true}}}"##),
+        ("layout_rd_records", r##"{"sections":{"page-title":{"visible":true,"label":"研发送样记录"},"table-columns":{"visible":true},"filters":{"visible":true}}}"##),
+        ("layout_stats", r##"{"sections":{"page-title":{"visible":true,"label":"分析检测统计"},"stat-cards":{"visible":true},"charts":{"visible":true}}}"##),
+        ("layout_sample_stats", r##"{"sections":{"page-title":{"visible":true,"label":"研发送样统计"},"stat-cards":{"visible":true},"charts":{"visible":true}}}"##),
+        ("layout_entry", r##"{"sections":{"page-title":{"visible":true,"label":"检测录入"},"form-fields":{"visible":true},"submit-btn":{"visible":true,"label":"提交"}}}"##),
     ];
 
     for (key, value) in settings {
