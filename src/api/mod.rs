@@ -32,6 +32,7 @@ pub mod sample_info_attachment_handler;
 pub mod user_handler;
 pub mod role_handler;
 pub mod rd_record_column_handler;
+pub mod settings_handler;
 
 use axum::{Router, Json, routing::get};
 use serde::Serialize;
@@ -83,4 +84,5 @@ pub fn api_router(pool: DbPool, config: Arc<AppConfig>) -> Router {
         .merge(user_handler::router(pool.clone(), config.clone()))
         .merge(role_handler::router(pool.clone()))
         .merge(rd_record_column_handler::router(pool.clone()))
+        .merge(settings_handler::router(pool.clone()))
 }

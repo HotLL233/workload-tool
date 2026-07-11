@@ -11,6 +11,23 @@ const SamplePortal: React.FC = () => {
   const [divs, setDivs] = useState<Division[]>([]);
   const { user } = useUser();
   const [selDiv, setSelDiv] = useState(0);
+  const [sampleColor, setSampleColor] = useState('#e65100');
+  const [brandName, setBrandName] = useState('研发送样');
+  useEffect(() => {
+    // v0.4.35: 从 settings 读取 portal_styles
+    fetch('/api/settings/portal-styles')
+      .then(r => r.json())
+      .then(d => {
+        if (d.data?.value) {
+          try {
+            const ps = JSON.parse(d.data.value);
+            if (ps.sampleColor) setSampleColor(ps.sampleColor);
+            if (ps.brandName) setBrandName(ps.brandName);
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
   const lg = async () => { setLd(true); setEr(''); try { const r = await getGroups(); if (r.code === 0) setGs(r.data as ProjectGroup[]); else setEr(r.message); } catch { setEr('加载失败'); } finally { setLd(false); } };
   const ld2 = async () => { try { const r = await getDivisions(); if (r.code === 0 && r.data) setDivs(r.data); } catch {} };
   useEffect(() => { lg(); ld2(); }, []);
@@ -46,21 +63,21 @@ const SamplePortal: React.FC = () => {
 
   return (<Box>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-      <IconButton onClick={() => n('/')} sx={{ bgcolor: 'rgba(230,81,0,0.08)', '&:hover': { bgcolor: 'rgba(230,81,0,0.15)' } }}>
-        <ArrowBackIcon sx={{ color: '#e65100' }} />
+      <IconButton onClick={() => n('/')} sx={{ bgcolor: `rgba(${parseInt(sampleColor.slice(1,3),16)},${parseInt(sampleColor.slice(3,5),16)},${parseInt(sampleColor.slice(5,7),16)},0.08)`, '&:hover': { bgcolor: `rgba(${parseInt(sampleColor.slice(1,3),16)},${parseInt(sampleColor.slice(3,5),16)},${parseInt(sampleColor.slice(5,7),16)},0.15)` } }}>
+        <ArrowBackIcon sx={{ color: sampleColor }} />
       </IconButton>
-      <Box sx={{ flex: 1 }}><Typography variant="h5" fontWeight={700} color="#e65100">研发送样</Typography><Typography variant="body2" color="text.secondary">选择实验室，开始研发送样录入</Typography></Box>
+      <Box sx={{ flex: 1 }}><Typography variant="h5" fontWeight={700} color={sampleColor}>{brandName}</Typography><Typography variant="body2" color="text.secondary">选择实验室，开始研发送样录入</Typography></Box>
       <Button variant="outlined" startIcon={<BarChartIcon />} onClick={() => n('/sample/stats')}
-        sx={{ borderRadius: R, borderColor: '#e65100', color: '#e65100', '&:hover': { borderColor: '#bf360c', bgcolor: 'rgba(230,81,0,0.04)' } }}>
+        sx={{ borderRadius: R, borderColor: sampleColor, color: sampleColor, '&:hover': { borderColor: sampleColor, bgcolor: `${sampleColor}0a` } }}>
         查看统计
       </Button>
     </Box>
     <TextField size="small" placeholder="搜索实验室..." value={sq} onChange={e => setSq(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }} sx={{ mb: 3, maxWidth: 400, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
-    <DivisionChips divisions={divs} counts={counts} totalCount={fg.length} selected={selDiv} onSelect={setSelDiv} themeColor="#e65100" />
+    <DivisionChips divisions={divs} counts={counts} totalCount={fg.length} selected={selDiv} onSelect={setSelDiv} themeColor={sampleColor} />
     {display.length === 0 ? <Box sx={{ textAlign: 'center', py: 6 }}><Typography color="text.secondary">{sq || selDiv !== 0 ? '未找到' : '暂无分组'}</Typography></Box> : (
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3,1fr)', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)' }, gap: 2.5 }}>
-        <RecordsCard pendingCount={totalPending} onClick={() => n('/sample-records')} themeColor="#e65100" />
-        {display.map(g => <GroupCard key={g.id} group={g} onClick={() => n(`/sample/${g.id}`)} themeColor="#e65100" />)}
+        <RecordsCard pendingCount={totalPending} onClick={() => n('/sample-records')} themeColor={sampleColor} />
+        {display.map(g => <GroupCard key={g.id} group={g} onClick={() => n(`/sample/${g.id}`)} themeColor={sampleColor} />)}
       </Box>
     )}
     <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 1, mt: 4, justifyContent: 'center' }}>

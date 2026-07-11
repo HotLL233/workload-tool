@@ -552,3 +552,53 @@ export interface SampleInfoType {
   is_active: number;
   created_at: string;
 }
+
+// ========== v0.4.35: 全 UI 自定义系统 ==========
+export interface SystemSetting {
+  key: string;
+  value: string; // JSON string
+  updated_at: string | null;
+}
+
+export interface ThemeSettings {
+  primaryColor: string;
+  secondaryColor: string;
+  bgColor: string;
+  cardRadius: number;
+  loginBg: string;
+  loginButtonColor: string;
+  logoText: string;
+}
+
+export interface HomeCard {
+  key: string;
+  title: string;
+  subtitle: string;
+  path: string;
+  perm: string;
+  icon: string;
+  gradient: string;
+  border: string;
+  titleColor: string;
+}
+
+export interface PortalStyle {
+  sampleColor: string;
+  workloadColor: string;
+  brandName: string;
+}
+
+export interface ManageTab {
+  key: string;
+  label: string;
+  icon: string;
+  perm: string;
+  enabled: boolean;
+}
+
+export interface StatCard {
+  key: string;
+  label: string;
+  color: string;
+  gradient: string;
+}

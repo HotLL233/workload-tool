@@ -26,15 +26,15 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PeopleIcon from '@mui/icons-material/People';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision, setDivisionLabs, getSampleInfoColumns, createSampleInfoColumn, updateSampleInfoColumn, deleteSampleInfoColumn, reorderSampleInfoColumns, userList, userRegister, updateUser, deleteUser, getRoles } from '../api/client';
-import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord, Division, SampleInfoColumn, User, UserUpdate, Role, RoleWithPermissions } from '../types';
+import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision, setDivisionLabs, getSampleInfoColumns, createSampleInfoColumn, updateSampleInfoColumn, deleteSampleInfoColumn, reorderSampleInfoColumns, userList, userRegister, updateUser, deleteUser, getRoles, updateSetting } from '../api/client';
+import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord, Division, SampleInfoColumn, User, UserUpdate, Role, RoleWithPermissions, SystemSetting, HomeCard, StatCard, ManageTab } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
 import InlineEditCard from '../components/InlineEditCard';
 import { useUser } from '../UserContext';
 import { hasPermission } from '../constants/permissions';
 import AdminRdRecordColumns from './AdminRdRecordColumns';
 
-type TV = 'projects' | 'groups' | 'methods' | 'divisions' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo' | 'users' | 'roles';
+type TV = 'projects' | 'groups' | 'methods' | 'divisions' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo' | 'users' | 'roles' | 'theme' | 'home' | 'stats';
 
 const R = '2px';
 const cSx = { borderRadius: R, fontWeight: 700, border: '1px solid rgba(0,0,0,0.08)' };
@@ -55,20 +55,6 @@ const extractInstrumentFromMethodName = (methodName: string): string | null => {
   if (bracketEnd === -1) return null;
   return afterAt.substring(bracketStart + 1, bracketEnd);
 };
-
-const TC = [
-  { key: 'projects', label: '研发项目管理', perm: 'manage:projects', icon: <ListAltIcon />, desc: '研发项目及关联实验室' },
-  { key: 'groups', label: '实验室管理', perm: 'manage:groups', icon: <FolderIcon />, desc: '新增编辑实验室映射录入选项卡' },
-  { key: 'divisions', label: '部门管理', perm: 'manage:divisions', icon: <BusinessIcon />, desc: '管理部门及下属实验室' },
-  { key: 'methods', label: '检测方法管理', perm: 'manage:methods', icon: <ScienceIcon />, desc: '液相/气相/理化/ICP/热分析等检测方法' },
-  { key: 'trash', label: '回收站', perm: 'manage:trash', icon: <DeleteSweepIcon />, desc: '恢复已删除的记录' },
-  { key: 'audit', label: '审计日志', perm: 'manage:audit', icon: <ReceiptLongIcon />, desc: '操作记录追溯' },
-  { key: 'backup', label: '数据备份', perm: 'manage:backup', icon: <BackupIcon />, desc: '备份恢复与自动备份设置' },
-  { key: 'help', label: '教程与帮助', perm: 'manage:help', icon: <MenuBookIcon />, desc: '上传编辑帮助文档，管理显隐' },
-  { key: 'sampleinfo', label: '样品信息登记管理', perm: 'manage:sampleinfo', icon: <ScienceIcon />, desc: '检测类型 · 记录查询 · 独立统计' },
-  { key: 'users', label: '用户管理', perm: 'manage:users', icon: <PeopleIcon />, desc: '注册/编辑用户、分配权限' },
-  { key: 'roles', label: '角色管理', perm: 'manage:roles', icon: <VerifiedUserIcon />, desc: '角色分级与入口可见性' },
-] as { key: TV; label: string; perm?: string; icon: React.ReactNode; desc: string }[];
 
 const ManagePage: React.FC = () => {
   const navigate = useNavigate();
@@ -144,6 +130,31 @@ const ManagePage: React.FC = () => {
   const [methodFilter, setMethodFilter] = useState('');
   const [importMappingOpen, setImportMappingOpen] = useState(false);
   const [importMappings, setImportMappings] = useState<ImportMapping[]>([]);
+
+  // v0.4.35: 动态 Tab 配置
+  const defaultTC: { key: TV; label: string; perm?: string; icon: React.ReactNode; desc: string }[] = [
+    { key: 'projects', label: '研发项目管理', perm: 'manage:projects', icon: <ListAltIcon />, desc: '研发项目及关联实验室' },
+    { key: 'groups', label: '实验室管理', perm: 'manage:groups', icon: <FolderIcon />, desc: '新增编辑实验室映射录入选项卡' },
+    { key: 'divisions', label: '部门管理', perm: 'manage:divisions', icon: <BusinessIcon />, desc: '管理部门及下属实验室' },
+    { key: 'methods', label: '检测方法管理', perm: 'manage:methods', icon: <ScienceIcon />, desc: '液相/气相/理化/ICP/热分析等检测方法' },
+    { key: 'trash', label: '回收站', perm: 'manage:trash', icon: <DeleteSweepIcon />, desc: '恢复已删除的记录' },
+    { key: 'audit', label: '审计日志', perm: 'manage:audit', icon: <ReceiptLongIcon />, desc: '操作记录追溯' },
+    { key: 'backup', label: '数据备份', perm: 'manage:backup', icon: <BackupIcon />, desc: '备份恢复与自动备份设置' },
+    { key: 'help', label: '教程与帮助', perm: 'manage:help', icon: <MenuBookIcon />, desc: '上传编辑帮助文档，管理显隐' },
+    { key: 'sampleinfo', label: '样品信息登记管理', perm: 'manage:sampleinfo', icon: <ScienceIcon />, desc: '检测类型 · 记录查询 · 独立统计' },
+    { key: 'users', label: '用户管理', perm: 'manage:users', icon: <PeopleIcon />, desc: '注册/编辑用户、分配权限' },
+    { key: 'roles', label: '角色管理', perm: 'manage:roles', icon: <VerifiedUserIcon />, desc: '角色分级与入口可见性' },
+    { key: 'theme', label: '主题设置', perm: 'manage:theme', icon: <ListAltIcon />, desc: '主题色/背景/圆角/品牌文字' },
+    { key: 'home', label: '首页配置', perm: 'manage:home', icon: <ListAltIcon />, desc: '首页入口卡片编辑' },
+    { key: 'stats', label: '统计卡片', perm: 'manage:stats', icon: <ListAltIcon />, desc: '统计页卡片编辑' },
+  ];
+  const [tc, setTc] = useState(defaultTC);
+
+  // v0.4.35: 设置编辑器状态
+  const [themeForm, setThemeForm] = useState({ primaryColor: '#667eea', secondaryColor: '#764ba2', bgColor: '#f8fafc', cardRadius: 2, loginBg: 'linear-gradient(135deg, #f0f4f8, #e8f5e9)', loginButtonColor: '#f4511e', logoText: '知微' });
+  const [homeCardsForm, setHomeCardsForm] = useState<HomeCard[]>([]);
+  const [statsCardsForm, setStatsCardsForm] = useState<StatCard[]>([]);
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const lm = useCallback(async () => { try { const r = await getMethods(); if (r.code === 0 && r.data) setMl(r.data); } catch {} }, []);
 
   // v0.3.0: 打开导入映射预览对话框
@@ -297,6 +308,36 @@ const ManagePage: React.FC = () => {
     });
     setCo(true);
   };
+
+  // v0.4.35: 加载管理页 Tab 配置和设备设置
+  useEffect(() => {
+    fetch('/api/settings/manage-tabs')
+      .then(r => r.json())
+      .then(d => {
+        if (d.data?.value) {
+          try {
+            const tabs: ManageTab[] = JSON.parse(d.data.value);
+            const enabledKeys = new Set(tabs.filter(t => t.enabled !== false).map(t => t.key as TV));
+            const filtered = defaultTC.filter(t => enabledKeys.has(t.key));
+            if (filtered.length > 0) setTc(filtered);
+          } catch {}
+        }
+      })
+      .catch(() => {});
+    // 加载主题/首页/统计卡片表单初始值
+    fetch('/api/settings/theme')
+      .then(r => r.json()).then(d => {
+        if (d.data?.value) try { const v = JSON.parse(d.data.value); setThemeForm(prev => ({ ...prev, ...v })); } catch {}
+      }).catch(() => {});
+    fetch('/api/settings/home-cards')
+      .then(r => r.json()).then(d => {
+        if (d.data?.value) try { setHomeCardsForm(JSON.parse(d.data.value)); } catch {}
+      }).catch(() => {});
+    fetch('/api/settings/stats-cards')
+      .then(r => r.json()).then(d => {
+        if (d.data?.value) try { setStatsCardsForm(JSON.parse(d.data.value)); } catch {}
+      }).catch(() => {});
+  }, []);
 
   const openSiEdit = (rec: SampleInfoRecord) => {
     setSiEditId(rec.id);
@@ -539,7 +580,7 @@ const ManagePage: React.FC = () => {
 
     {/* 卡片网格 */}
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr 1fr', sm: '1fr 1fr 1fr', md: '1fr 1fr 1fr' }, gap: 1.5, mb: 3 }}>
-      {TC.filter(c => user?.is_admin || !c.perm || hasPermission(user?.permissions || [], c.perm)).map(c => (
+      {tc.filter(c => user?.is_admin || !c.perm || hasPermission(user?.permissions || [], c.perm)).map(c => (
         <Paper key={c.key} elevation={0}
           onClick={() => c.key === 'roles' ? navigate('/admin/roles') : setTb(c.key)}
           sx={{ p: isMobile ? 1.5 : 2.5, borderRadius: R, cursor: 'pointer', border: '2px solid', borderColor: tb === c.key ? '#f4511e' : 'rgba(0,0,0,0.06)', transition: 'all 0.2s', '&:hover': { borderColor: '#f4511e', boxShadow: '0 4px 24px rgba(244,81,30,0.12)' } }}>
@@ -1496,6 +1537,163 @@ const ManagePage: React.FC = () => {
 
       {siSubTab === 'rd_columns' && <AdminRdRecordColumns />}
 
+    </Box>}
+
+    {/* ── 主题设置 (v0.4.35) ── */}
+    {tb === 'theme' && <Box>
+      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>⑧ 主题设置</Typography>
+      <Paper elevation={0} sx={{ p: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)', maxWidth: 600 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2" sx={{ minWidth: 100, fontWeight: 600 }}>主色</Typography>
+            <input type="color" value={themeForm.primaryColor} onChange={e => setThemeForm(p => ({ ...p, primaryColor: e.target.value }))} style={{ width: 48, height: 36, border: 'none', cursor: 'pointer', padding: 0 }} />
+            <TextField size="small" value={themeForm.primaryColor} onChange={e => setThemeForm(p => ({ ...p, primaryColor: e.target.value }))} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R }, width: 180 }} />
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2" sx={{ minWidth: 100, fontWeight: 600 }}>辅色</Typography>
+            <input type="color" value={themeForm.secondaryColor} onChange={e => setThemeForm(p => ({ ...p, secondaryColor: e.target.value }))} style={{ width: 48, height: 36, border: 'none', cursor: 'pointer', padding: 0 }} />
+            <TextField size="small" value={themeForm.secondaryColor} onChange={e => setThemeForm(p => ({ ...p, secondaryColor: e.target.value }))} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R }, width: 180 }} />
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2" sx={{ minWidth: 100, fontWeight: 600 }}>背景色</Typography>
+            <input type="color" value={themeForm.bgColor} onChange={e => setThemeForm(p => ({ ...p, bgColor: e.target.value }))} style={{ width: 48, height: 36, border: 'none', cursor: 'pointer', padding: 0 }} />
+            <TextField size="small" value={themeForm.bgColor} onChange={e => setThemeForm(p => ({ ...p, bgColor: e.target.value }))} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R }, width: 180 }} />
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2" sx={{ minWidth: 100, fontWeight: 600 }}>圆角</Typography>
+            <input type="range" min={0} max={16} value={themeForm.cardRadius} onChange={e => setThemeForm(p => ({ ...p, cardRadius: Number(e.target.value) }))} style={{ flex: 1 }} />
+            <Typography variant="body2" sx={{ minWidth: 30, textAlign: 'right' }}>{themeForm.cardRadius}px</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2" sx={{ minWidth: 100, fontWeight: 600 }}>登录背景</Typography>
+            <TextField size="small" fullWidth value={themeForm.loginBg} onChange={e => setThemeForm(p => ({ ...p, loginBg: e.target.value }))} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2" sx={{ minWidth: 100, fontWeight: 600 }}>登录按钮色</Typography>
+            <input type="color" value={themeForm.loginButtonColor} onChange={e => setThemeForm(p => ({ ...p, loginButtonColor: e.target.value }))} style={{ width: 48, height: 36, border: 'none', cursor: 'pointer', padding: 0 }} />
+            <TextField size="small" value={themeForm.loginButtonColor} onChange={e => setThemeForm(p => ({ ...p, loginButtonColor: e.target.value }))} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R }, width: 180 }} />
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="body2" sx={{ minWidth: 100, fontWeight: 600 }}>品牌文字</Typography>
+            <TextField size="small" value={themeForm.logoText} onChange={e => setThemeForm(p => ({ ...p, logoText: e.target.value }))} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R }, width: 180 }} />
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 1 }}>
+            <Button variant="contained" onClick={async () => {
+              setSettingsLoading(true);
+              try {
+                await updateSetting('theme', themeForm);
+                sm('主题设置已保存（刷新页面后生效）');
+              } catch { sm('保存失败', true); }
+              setSettingsLoading(false);
+            }} disabled={settingsLoading} sx={{ borderRadius: R }}>
+              {settingsLoading ? <CircularProgress size={20} /> : '保存主题设置'}
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
+    </Box>}
+
+    {/* ── 首页配置 (v0.4.35) ── */}
+    {tb === 'home' && <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="subtitle1" fontWeight={700}>⑨ 首页配置</Typography>
+        <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => {
+          setHomeCardsForm(prev => [...prev, { key: '', title: '', subtitle: '', path: '', perm: '', icon: 'Science', gradient: 'linear-gradient(145deg,#fff3e0,#ffe0b2)', border: '#e65100', titleColor: '#e65100' }]);
+        }} sx={{ borderRadius: R }}>新增卡片</Button>
+      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>编辑首页 3 张入口卡片。修改后保存生效。</Typography>
+      {homeCardsForm.length === 0 ? (
+        <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>暂无卡片配置</Typography>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {homeCardsForm.map((card, idx) => (
+            <Paper key={idx} elevation={0} sx={{ p: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mr: 1 }}>卡片 {idx + 1}</Typography>
+                <IconButton size="small" color="error" onClick={() => setHomeCardsForm(prev => prev.filter((_, i) => i !== idx))}><DeleteIcon fontSize="small" /></IconButton>
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                <TextField label="标识 (key)" size="small" value={card.key} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, key: v } : c)); }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+                <TextField label="标题" size="small" value={card.title} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, title: v } : c)); }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+                <TextField label="副标题" size="small" value={card.subtitle} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, subtitle: v } : c)); }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+                <TextField label="路径" size="small" value={card.path} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, path: v } : c)); }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+                <TextField label="权限点" size="small" value={card.perm} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, perm: v } : c)); }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+                <TextField label="图标名" size="small" value={card.icon} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, icon: v } : c)); }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} helperText="Science / BarChart / Assignment" />
+                <TextField label="渐变背景" size="small" value={card.gradient} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, gradient: v } : c)); }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} fullWidth />
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Typography variant="caption">边框色</Typography>
+                  <input type="color" value={card.border} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, border: v } : c)); }} style={{ width: 32, height: 28, border: 'none', cursor: 'pointer', padding: 0 }} />
+                  <TextField size="small" value={card.border} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, border: v } : c)); }} sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Typography variant="caption">标题色</Typography>
+                  <input type="color" value={card.titleColor} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, titleColor: v } : c)); }} style={{ width: 32, height: 28, border: 'none', cursor: 'pointer', padding: 0 }} />
+                  <TextField size="small" value={card.titleColor} onChange={e => { const v = e.target.value; setHomeCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, titleColor: v } : c)); }} sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+                </Box>
+              </Box>
+            </Paper>
+          ))}
+        </Box>
+      )}
+      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button variant="contained" onClick={async () => {
+          setSettingsLoading(true);
+          try {
+            await updateSetting('home-cards', homeCardsForm);
+            sm('首页配置已保存');
+          } catch { sm('保存失败', true); }
+          setSettingsLoading(false);
+        }} disabled={settingsLoading} sx={{ borderRadius: R }}>
+          {settingsLoading ? <CircularProgress size={20} /> : '保存首页配置'}
+        </Button>
+      </Box>
+    </Box>}
+
+    {/* ── 统计卡片 (v0.4.35) ── */}
+    {tb === 'stats' && <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="subtitle1" fontWeight={700}>⑩ 统计卡片</Typography>
+        <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => {
+          setStatsCardsForm(prev => [...prev, { key: '', label: '', color: '#667eea', gradient: 'linear-gradient(135deg,#667eea,#764ba2)' }]);
+        }} sx={{ borderRadius: R }}>新增卡片</Button>
+      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>编辑统计页卡片。key 决定数据来源：total/records/users/project/lab/type</Typography>
+      {statsCardsForm.length === 0 ? (
+        <Typography color="text.secondary" textAlign="center" sx={{ py: 3 }}>暂无统计卡片配置</Typography>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {statsCardsForm.map((card, idx) => (
+            <Paper key={idx} elevation={0} sx={{ p: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                <Typography variant="subtitle2" fontWeight={700}>卡片 {idx + 1}</Typography>
+                <IconButton size="small" color="error" onClick={() => setStatsCardsForm(prev => prev.filter((_, i) => i !== idx))}><DeleteIcon fontSize="small" /></IconButton>
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                <TextField label="标识 (key)" size="small" value={card.key} onChange={e => { const v = e.target.value; setStatsCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, key: v } : c)); }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} helperText="total/records/users/project/lab/type" />
+                <TextField label="显示名" size="small" value={card.label} onChange={e => { const v = e.target.value; setStatsCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, label: v } : c)); }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Typography variant="caption">颜色</Typography>
+                  <input type="color" value={card.color} onChange={e => { const v = e.target.value; setStatsCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, color: v } : c)); }} style={{ width: 32, height: 28, border: 'none', cursor: 'pointer', padding: 0 }} />
+                  <TextField size="small" value={card.color} onChange={e => { const v = e.target.value; setStatsCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, color: v } : c)); }} sx={{ width: 140, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+                </Box>
+                <TextField label="渐变背景" size="small" value={card.gradient} onChange={e => { const v = e.target.value; setStatsCardsForm(prev => prev.map((c, i) => i === idx ? { ...c, gradient: v } : c)); }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: R } }} />
+              </Box>
+            </Paper>
+          ))}
+        </Box>
+      )}
+      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button variant="contained" onClick={async () => {
+          setSettingsLoading(true);
+          try {
+            await updateSetting('stats-cards', statsCardsForm);
+            sm('统计卡片已保存');
+          } catch { sm('保存失败', true); }
+          setSettingsLoading(false);
+        }} disabled={settingsLoading} sx={{ borderRadius: R }}>
+          {settingsLoading ? <CircularProgress size={20} /> : '保存统计卡片'}
+        </Button>
+      </Box>
     </Box>}
 
     {/* ── 用户管理 (v0.4.29) ── */}

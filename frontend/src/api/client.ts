@@ -47,6 +47,7 @@ import type {
   Role,
   RoleWithPermissions,
   RdRecordColumn,
+  SystemSetting,
 } from '../types';
 
 const client = axios.create({ baseURL: '/api' });
@@ -605,5 +606,15 @@ export const getRdRecordColumns = (): Promise<ApiResponse<RdRecordColumn[]>> =>
 
 export const updateRdRecordColumn = (id: number, data: { width?: number; show_in_list?: boolean; show_in_form?: boolean }): Promise<ApiResponse<RdRecordColumn>> =>
   client.put(`/rd-record-columns/${id}`, data).then(r => r.data);
+
+// ========== v0.4.35: 全 UI 自定义系统 API ==========
+export const getSettings = (): Promise<ApiResponse<SystemSetting[]>> =>
+  client.get('/settings').then(r => r.data);
+
+export const getSetting = (key: string): Promise<ApiResponse<SystemSetting>> =>
+  client.get(`/settings/${key}`).then(r => r.data);
+
+export const updateSetting = (key: string, value: any): Promise<ApiResponse<SystemSetting>> =>
+  client.put(`/settings/${key}`, { value }).then(r => r.data);
 
 export default client;

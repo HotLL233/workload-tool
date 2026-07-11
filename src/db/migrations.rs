@@ -617,6 +617,19 @@ pub fn run(conn: &rusqlite::Connection) -> Result<()> {
         "UPDATE sample_info_columns SET width=80 WHERE field_key='status' AND width!=80", []
     ).ok();
 
+    // ═══════════════════════════════════════════════════════════
+    // v0.4.35: 全 UI 自定义系统 — system_settings 表 + 种子数据
+    // ═══════════════════════════════════════════════════════════
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS system_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT
+        );"
+    )?;
+
+    seed_default_settings(conn)?;
+
     Ok(())
 }
 
@@ -674,5 +687,25 @@ fn seed_roles(conn: &rusqlite::Connection) -> Result<()> {
             )?;
         }
     }
+    Ok(())
+}
+
+/// 写入 5 条默认系统设置，使用 INSERT OR IGNORE 保证幂等
+fn seed_default_settings(conn: &rusqlite::Connection) -> Result<()> {
+    let settings = vec![
+        ("theme", r##"{"primaryColor":"#667eea","secondaryColor":"#764ba2","bgColor":"#f8fafc","cardRadius":2,"loginBg":"linear-gradient(135deg, #f0f4f8, #e8f5e9)","loginButtonColor":"#f4511e","logoText":"知微"}"##),
+        ("home_cards", r##"[{"key":"sample","title":"研发送样","subtitle":"送样录入 · 查看记录","path":"/sample","perm":"entry:sample","icon":"Science","gradient":"linear-gradient(145deg,#fff3e0,#ffe0b2)","border":"#e65100","titleColor":"#e65100"},{"key":"workload","title":"分析检测","subtitle":"检测录入 · 统计 · 管理","path":"/workload","perm":"entry:workload","icon":"BarChart","gradient":"linear-gradient(145deg,#e8eaf6,#c5cae9)","border":"#283593","titleColor":"#283593"},{"key":"sample-info","title":"样品信息登记","subtitle":"ICP · 热分析 · 质谱等样品信息填写","path":"/sample-info","perm":"entry:sample-info","icon":"Assignment","gradient":"linear-gradient(145deg,#e8f5e9,#c8e6c9)","border":"#2e7d32","titleColor":"#2e7d32"}]"##),
+        ("portal_styles", r##"{"sampleColor":"#e65100","workloadColor":"#1976d2","brandName":"知微"}"##),
+        ("manage_tabs", r##"[{"key":"projects","label":"项目管理","icon":"Folder","perm":"manage:projects","enabled":true},{"key":"groups","label":"分组管理","icon":"AccountTree","perm":"manage:groups","enabled":true},{"key":"divisions","label":"部门管理","icon":"Business","perm":"manage:divisions","enabled":true},{"key":"methods","label":"方法管理","icon":"Science","perm":"manage:methods","enabled":true},{"key":"trash","label":"回收站","icon":"Delete","perm":"manage:trash","enabled":true},{"key":"audit","label":"审计日志","icon":"History","perm":"manage:audit","enabled":true},{"key":"backup","label":"备份恢复","icon":"Backup","perm":"manage:backup","enabled":true},{"key":"help","label":"帮助页","icon":"Help","perm":"manage:help","enabled":true},{"key":"sampleinfo","label":"样品信息登记","icon":"Assignment","perm":"manage:sampleinfo","enabled":true},{"key":"users","label":"用户管理","icon":"People","perm":"manage:users","enabled":true},{"key":"roles","label":"角色管理","icon":"AdminPanelSettings","perm":"manage:roles","enabled":true}]"##),
+        ("stats_cards", r##"[{"key":"total","label":"总数量","color":"#667eea","gradient":"linear-gradient(135deg,#667eea,#764ba2)"},{"key":"records","label":"总记录数","color":"#43a047","gradient":"linear-gradient(135deg,#43a047,#1b5e20)"},{"key":"users","label":"参与人数","color":"#fb8c00","gradient":"linear-gradient(135deg,#fb8c00,#e65100)"}]"##),
+    ];
+
+    for (key, value) in settings {
+        conn.execute(
+            "INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES (?1, ?2, datetime('now','localtime'))",
+            rusqlite::params![key, value],
+        )?;
+    }
+
     Ok(())
 }

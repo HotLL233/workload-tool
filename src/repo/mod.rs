@@ -15,3 +15,4 @@ pub mod sample_info_column_visibility_repo;
 pub mod user_repo;
 pub mod role_repo;
 pub mod rd_record_column_repo;
+pub mod settings_repo;

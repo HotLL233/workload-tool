@@ -8,6 +8,23 @@ const R = '2px';
 const WorkloadPortal: React.FC = () => {
   const n = useNavigate(); const [gs, setGs] = useState<ProjectGroup[]>([]); const [ld, setLd] = useState(true); const [er, setEr] = useState(''); const [sq, setSq] = useState('');
   const [divs, setDivs] = useState<Division[]>([]); const [selDiv, setSelDiv] = useState(0);
+  const [workloadColor, setWorkloadColor] = useState('#1976d2');
+  const [brandName, setBrandName] = useState('工作量录入');
+  useEffect(() => {
+    // v0.4.35: 从 settings 读取 portal_styles
+    fetch('/api/settings/portal-styles')
+      .then(r => r.json())
+      .then(d => {
+        if (d.data?.value) {
+          try {
+            const ps = JSON.parse(d.data.value);
+            if (ps.workloadColor) setWorkloadColor(ps.workloadColor);
+            if (ps.brandName) setBrandName(ps.brandName);
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
   const lg = async () => { setLd(true); setEr(''); try { const r = await getGroups(); if (r.code === 0) setGs(r.data as ProjectGroup[]); else setEr(r.message); } catch { setEr('加载失败'); } finally { setLd(false); } };
   const ld2 = async () => { try { const r = await getDivisions(); if (r.code === 0 && r.data) setDivs(r.data); } catch {} };
   useEffect(() => { lg(); ld2(); }, []);
@@ -29,21 +46,21 @@ const WorkloadPortal: React.FC = () => {
 
   return (<Box>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-      <IconButton onClick={() => n('/')} sx={{ bgcolor: 'rgba(25,118,210,0.08)', '&:hover': { bgcolor: 'rgba(25,118,210,0.15)' } }}>
-        <ArrowBackIcon sx={{ color: '#1976d2' }} />
+      <IconButton onClick={() => n('/')} sx={{ bgcolor: `rgba(${parseInt(workloadColor.slice(1,3),16)},${parseInt(workloadColor.slice(3,5),16)},${parseInt(workloadColor.slice(5,7),16)},0.08)`, '&:hover': { bgcolor: `rgba(${parseInt(workloadColor.slice(1,3),16)},${parseInt(workloadColor.slice(3,5),16)},${parseInt(workloadColor.slice(5,7),16)},0.15)` } }}>
+        <ArrowBackIcon sx={{ color: workloadColor }} />
       </IconButton>
-      <Box sx={{ flex: 1 }}><Typography variant="h5" fontWeight={700} color="primary">工作量录入</Typography><Typography variant="body2" color="text.secondary">选择实验室，开始录入检测数据</Typography></Box>
+      <Box sx={{ flex: 1 }}><Typography variant="h5" fontWeight={700} color={workloadColor}>{brandName}</Typography><Typography variant="body2" color="text.secondary">选择实验室，开始录入检测数据</Typography></Box>
       <Button variant="outlined" startIcon={<BarChartIcon />} onClick={() => n('/stats')}
-        sx={{ borderRadius: R, borderColor: '#1976d2', color: '#1976d2', '&:hover': { borderColor: '#1565c0', bgcolor: 'rgba(25,118,210,0.04)' } }}>
+        sx={{ borderRadius: R, borderColor: workloadColor, color: workloadColor, '&:hover': { borderColor: workloadColor, bgcolor: `${workloadColor}0a` } }}>
         查看统计
       </Button>
     </Box>
     <TextField size="small" placeholder="搜索实验室..." value={sq} onChange={e => setSq(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }} sx={{ mb: 3, maxWidth: 400, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
-    <DivisionChips divisions={divs} counts={counts} totalCount={fg.length} selected={selDiv} onSelect={setSelDiv} themeColor="#1976d2" />
+    <DivisionChips divisions={divs} counts={counts} totalCount={fg.length} selected={selDiv} onSelect={setSelDiv} themeColor={workloadColor} />
     {display.length === 0 ? <Box sx={{ textAlign: 'center', py: 6 }}><Typography color="text.secondary">{sq || selDiv !== 0 ? '未找到' : '暂无分组'}</Typography></Box> : (
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3,1fr)', sm: 'repeat(2,1fr)', md: 'repeat(3,1fr)' }, gap: { xs: 1, sm: 2.5 } }}>
-        <RecordsCard pendingCount={totalPending} onClick={() => n('/sample-records')} themeColor="#1976d2" />
-        {display.map(g => <GroupCard key={g.id} group={g} onClick={() => n(`/entry/${g.id}`)} themeColor="#1976d2" />)}
+        <RecordsCard pendingCount={totalPending} onClick={() => n('/sample-records')} themeColor={workloadColor} />
+        {display.map(g => <GroupCard key={g.id} group={g} onClick={() => n(`/entry/${g.id}`)} themeColor={workloadColor} />)}
       </Box>
     )}
     <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 1, mt: 4, justifyContent: 'center' }}>

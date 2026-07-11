@@ -17,6 +17,7 @@ pub mod sample_info_column_visibility;
 pub mod user;
 pub mod role;
 pub mod rd_record_column;
+pub mod settings;
 
 use serde::{Deserialize, Serialize};
 
