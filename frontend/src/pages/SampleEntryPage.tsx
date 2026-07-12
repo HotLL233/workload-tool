@@ -9,9 +9,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SendIcon from '@mui/icons-material/Send';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { Project, Method, MethodType, WorkRecord, ProjectGroup, Division, RdRecordColumn } from '../types';
+import type { Project, Method, MethodType, WorkRecord, ProjectGroup, Division } from '../types';
 import type { FieldDef } from '../types/layout';
-import { getProjects, getMethods, createRdRecord, getMethodTypes, getGroups, getRdRecords, sampleRdRecord, getDivisions, getRdRecordColumns } from '../api/client';
+import { getProjects, getMethods, createRdRecord, getMethodTypes, getGroups, getRdRecords, sampleRdRecord, getDivisions } from '../api/client';
 import { useUser } from '../UserContext';
 import EditablePageShell from '../components/EditablePageShell';
 import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
@@ -75,7 +75,6 @@ const SampleEntryPage: React.FC = () => {
   const [mts, setMts] = useState<MethodType[]>([]);
   const [divs, setDivs] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
-  const [rdColumns, setRdColumns] = useState<RdRecordColumn[]>([]);
 
   // v0.4.36: 页面布局字段
   const [layoutFields, setLayoutFields] = useState<FieldDef[]>(DEFAULT_LAYOUT_FIELDS);
@@ -128,16 +127,15 @@ const SampleEntryPage: React.FC = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [gr, pr, mr, mtr, dr, rcr] = await Promise.all([
+      const [gr, pr, mr, mtr, dr] = await Promise.all([
         getGroups(), getProjects({ group_id: gid, active_only: true }),
-        getMethods(), getMethodTypes(), getDivisions(), getRdRecordColumns(),
+        getMethods(), getMethodTypes(), getDivisions(),
       ]);
       if (gr.code === 0 && gr.data) setGroups(gr.data);
       if (pr.code === 0 && pr.data) setProjects(pr.data);
       if (mr.code === 0 && mr.data) setAllMethods(mr.data);
       if (mtr.code === 0 && mtr.data) setMts(mtr.data);
       if (dr.code === 0 && dr.data) setDivs(dr.data);
-      if (rcr.code === 0 && rcr.data) setRdColumns(rcr.data);
     } catch {} finally { setLoading(false); }
   }, [gid]);
 
@@ -286,9 +284,7 @@ const SampleEntryPage: React.FC = () => {
   const selectedRecord = todayRecords.find(r => r.id === selectedRecordId);
   const headerStatus = selectedRecord ? (selectedRecord.status || '待取样') : '待取样';
 
-  // 表单列（show_in_form=true）
-  const formColumns = rdColumns.filter(c => c.show_in_form);
-
+  // v0.4.41: 录入表格列改用 layoutFields（EditablePageShell 编辑生效）
   // v0.4.36: 获取可见的布局字段（按 sort_order 排序）
   const visibleLayoutFields = useMemo(() => {
     return [...layoutFields]
@@ -473,33 +469,11 @@ const SampleEntryPage: React.FC = () => {
                     }} />
                 </TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 40, textAlign: 'center' }}>序号</TableCell>
-                {formColumns.map(col => {
-                  if (col.name === 'user_name') {
-                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 120 }}>{col.label}</TableCell>;
-                  }
-                  if (col.name === 'division_id') {
-                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 140 }}>{col.label}</TableCell>;
-                  }
-                  if (col.name === 'project_name') {
-                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 150 }}>{col.label}</TableCell>;
-                  }
-                  if (col.name === 'detection_type') {
-                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 110 }}>{col.label}</TableCell>;
-                  }
-                  if (col.name === 'method_name') {
-                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 180 }}>{col.label}</TableCell>;
-                  }
-                  if (col.name === 'quantity') {
-                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 80 }}>{col.label}</TableCell>;
-                  }
-                  if (col.name === 'batch_no') {
-                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 100 }}>{col.label}</TableCell>;
-                  }
-                  if (col.name === 'notes') {
-                    return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 130 }}>{col.label}</TableCell>;
-                  }
-                  return <TableCell key={col.name} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: col.width || 100 }}>{col.label}</TableCell>;
-                })}
+                {visibleLayoutFields.map(field => (
+                  <TableCell key={field.key} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: field.width || 100 }}>
+                    {field.label}
+                  </TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -512,22 +486,22 @@ const SampleEntryPage: React.FC = () => {
                     <Checkbox size="small" checked={row.checked} onChange={() => toggleCheck(row.id)} />
                   </TableCell>
                   <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>{idx + 1}</TableCell>
-                  {formColumns.map(col => {
-                    if (col.name === 'user_name') {
+                  {visibleLayoutFields.map(field => {
+                    if (field.key === 'user_name') {
                       return (
-                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                        <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" value={row.user_name} onChange={e => updateRow(row.id, { user_name: e.target.value })}
-                            sx={{ width: Math.min(col.width || 120, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: Math.min(field.width || 120, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             inputProps={{ style: { padding: '2px 6px' } }} />
                         </TableCell>
                       );
                     }
-                    if (col.name === 'division_id') {
+                    if (field.key === 'division_id') {
                       return (
-                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                        <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" select value={row.division_id ?? ''}
                             onChange={e => updateRow(row.id, { division_id: e.target.value ? Number(e.target.value) : null })}
-                            sx={{ width: Math.min(col.width || 140, 160), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: Math.min(field.width || 140, 160), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
                             <option value="">-</option>
                             {divs.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -535,9 +509,9 @@ const SampleEntryPage: React.FC = () => {
                         </TableCell>
                       );
                     }
-                    if (col.name === 'project_name') {
+                    if (field.key === 'project_name') {
                       return (
-                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                        <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" select value={row.project_id ?? ''}
                             onChange={e => {
                               const pid = e.target.value ? Number(e.target.value) : null;
@@ -550,7 +524,7 @@ const SampleEntryPage: React.FC = () => {
                                 method_name: '',
                               });
                             }}
-                            sx={{ width: Math.min(col.width || 150, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: Math.min(field.width || 150, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
                             <option value="">-</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -558,15 +532,15 @@ const SampleEntryPage: React.FC = () => {
                         </TableCell>
                       );
                     }
-                    if (col.name === 'detection_type') {
+                    if (field.key === 'detection_type') {
                       return (
-                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                        <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" select value={row.method_type}
                             onChange={e => {
                               const mt = e.target.value;
                               updateRow(row.id, { method_type: mt, method_id: null, method_name: '' });
                             }}
-                            sx={{ width: Math.min(col.width || 110, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: Math.min(field.width || 110, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}
                             disabled={!row.project_id}>
                             <option value="">-</option>
@@ -575,16 +549,16 @@ const SampleEntryPage: React.FC = () => {
                         </TableCell>
                       );
                     }
-                    if (col.name === 'method_name') {
+                    if (field.key === 'method_name') {
                       return (
-                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                        <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" select value={row.method_id ?? ''}
                             onChange={e => {
                               const mid = e.target.value ? Number(e.target.value) : null;
                               const meth = availableMethods.find(m => m.id === mid);
                               updateRow(row.id, { method_id: mid, method_name: meth?.name || '' });
                             }}
-                            sx={{ width: Math.min(col.width || 180, 220), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: Math.min(field.width || 180, 220), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}
                             disabled={!row.project_id}>
                             <option value="">-</option>
@@ -593,36 +567,36 @@ const SampleEntryPage: React.FC = () => {
                         </TableCell>
                       );
                     }
-                    if (col.name === 'quantity') {
+                    if (field.key === 'quantity') {
                       return (
-                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                        <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField type="number" size="small" value={row.quantity}
                             onChange={e => updateRow(row.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-                            sx={{ width: Math.min(col.width || 80, 100), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: Math.min(field.width || 80, 100), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             inputProps={{ min: 1, style: { padding: '2px 6px', textAlign: 'center' } }} />
                         </TableCell>
                       );
                     }
-                    if (col.name === 'batch_no') {
+                    if (field.key === 'batch_no') {
                       return (
-                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                        <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" value={row.batch_no} onChange={e => updateRow(row.id, { batch_no: e.target.value })}
-                            sx={{ width: Math.min(col.width || 100, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: Math.min(field.width || 100, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             inputProps={{ style: { padding: '2px 6px' } }} />
                         </TableCell>
                       );
                     }
-                    if (col.name === 'notes') {
+                    if (field.key === 'notes') {
                       return (
-                        <TableCell key={col.name} sx={{ p: 0.5 }}>
+                        <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" value={row.notes} onChange={e => updateRow(row.id, { notes: e.target.value })}
-                            sx={{ minWidth: Math.min(col.width || 130, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ minWidth: Math.min(field.width || 130, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             inputProps={{ style: { padding: '2px 6px' } }} />
                         </TableCell>
                       );
                     }
                     // 其他动态列（占位）
-                    return <TableCell key={col.name} sx={{ p: 0.5, fontSize: '0.8rem' }}>-</TableCell>;
+                    return <TableCell key={field.key} sx={{ p: 0.5, fontSize: '0.8rem' }}>-</TableCell>;
                   })}
                 </TableRow>
               );
