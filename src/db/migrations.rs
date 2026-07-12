@@ -363,6 +363,8 @@ pub fn run(conn: &rusqlite::Connection) -> Result<()> {
     // project_groups 增加 division_id（软关联；旧实验室自然为 NULL）
     conn.execute("ALTER TABLE project_groups ADD COLUMN division_id INTEGER REFERENCES divisions(id)", []).ok();
     conn.execute("CREATE INDEX IF NOT EXISTS idx_groups_division ON project_groups(division_id)", []).ok();
+    // v0.4.40: 为 project_groups 补加 deleted_at 列（之前缺失导致 by_division SQL 报错）
+    conn.execute("ALTER TABLE project_groups ADD COLUMN deleted_at TEXT", []).ok();
 
     // work_records / rd_work_records 增加 division_id（冗余快照，录入时锁定写入）
     conn.execute("ALTER TABLE work_records ADD COLUMN division_id INTEGER REFERENCES divisions(id)", []).ok();

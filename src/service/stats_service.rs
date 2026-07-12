@@ -153,7 +153,7 @@ pub fn by_division(pool: &DbPool, start: &str, end: &str, division_id: Option<i6
                 COALESCE(SUM(wr.quantity), 0) AS total_quantity,
                 COUNT(wr.id) AS record_count,
                 COALESCE(SUM(wr.quantity * p.coefficient * wr.multiplier), 0.0) AS coefficient_score,
-                (SELECT COUNT(DISTINCT pg2.id) FROM project_groups pg2 WHERE pg2.division_id = d.id AND pg2.deleted_at IS NULL) AS lab_count
+                (SELECT COUNT(DISTINCT pg2.id) FROM project_groups pg2 WHERE pg2.division_id = d.id) AS lab_count
          FROM work_records wr
          JOIN projects p ON wr.project_id = p.id
          LEFT JOIN project_groups pg ON wr.group_id = pg.id
