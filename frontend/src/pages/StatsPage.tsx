@@ -474,28 +474,13 @@ const StatsPage: React.FC = () => {
   }, [ac, ld2]);
   const hx = async () => {
     try {
-      // 使用原生 fetch 替代 axios blob，避免 responseType: 'blob' 的已知问题
-      const params = new URLSearchParams();
-      if (si) params.set('start', si.substring(0, 10));
-      if (ei) params.set('end', ei.substring(0, 10));
-      if (gf) params.set('group_id', String(gf));
-      // 显式附带 token（fetch 不会自动加 Authorization）
-      const token = localStorage.getItem('workload_token') || sessionStorage.getItem('workload_token') || '';
-      const res = await fetch(`/api/export/excel?${params.toString()}`, {
-        credentials: 'include',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      const b = await exportExcel({
+        start: si,
+        end: ei,
+        group_id: gf || undefined,
       });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        let msg = `导出失败 (HTTP ${res.status})`;
-        try { const j = JSON.parse(txt); if (j.message) msg = j.message; } catch {}
-        throw new Error(msg);
-      }
-      const blob = await res.blob();
-      // 验证 blob 真的不是错误（size>0 & content-type 是 xlsx）
-      if (blob.size === 0) throw new Error('导出文件为空');
-      const u = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const u = URL.createObjectURL(b);
+      const a = document.createElement("a");
       a.href = u;
       a.download = `样品管理_${s}_${e}.xlsx`;
       document.body.appendChild(a);
