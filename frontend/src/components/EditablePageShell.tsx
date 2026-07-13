@@ -62,19 +62,8 @@ const EditablePageShell: React.FC<EditablePageShellProps> = ({
     async (newFields: FieldDef[]) => {
       const settingKey = `layout_${pageKey}`;
       try {
-        // 用原生 fetch 代替 Axios，排除 Axios 拦截器/转换器的问题
-        const body = JSON.stringify({ value: newFields });
-        const res = await fetch(`/api/settings/${settingKey}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body,
-        });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => '');
-          throw new Error(`HTTP ${res.status}: ${txt || res.statusText}`);
-        }
-        const saved = await res.json();
+        // v0.4.42: 用 Axios 走拦截器，自动附 token（fetch 不会自动加）
+        const saved = await updateSetting(settingKey, newFields);
         if (saved.code !== 0) {
           throw new Error(saved.message || '服务端返回错误');
         }

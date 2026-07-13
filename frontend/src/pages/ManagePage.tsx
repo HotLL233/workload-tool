@@ -12,8 +12,11 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FolderIcon from '@mui/icons-material/Folder';
 import ListAltIcon from '@mui/icons-material/ListAlt';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import BuildIcon from '@mui/icons-material/Build';
 import ScienceIcon from '@mui/icons-material/Science';
 import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
+import PageLayoutAdmin from '../components/PageLayoutAdmin';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import HistoryIcon from '@mui/icons-material/History';
@@ -35,7 +38,7 @@ import { useUser } from '../UserContext';
 import { hasPermission } from '../constants/permissions';
 import AdminRdRecordColumns from './AdminRdRecordColumns';
 
-type TV = 'projects' | 'groups' | 'methods' | 'divisions' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo' | 'users' | 'roles' | 'theme' | 'home' | 'stats';
+type TV = 'projects' | 'groups' | 'methods' | 'divisions' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo' | 'users' | 'roles' | 'layouts' | 'theme' | 'home' | 'stats';
 
 const R = '2px';
 const cSx = { borderRadius: R, fontWeight: 700, border: '1px solid rgba(0,0,0,0.08)' };
@@ -145,6 +148,7 @@ const ManagePage: React.FC = () => {
     { key: 'sampleinfo', label: '样品信息登记管理', perm: 'manage:sampleinfo', icon: <ScienceIcon />, desc: '检测类型 · 记录查询 · 独立统计' },
     { key: 'users', label: '用户管理', perm: 'manage:users', icon: <PeopleIcon />, desc: '注册/编辑用户、分配权限' },
     { key: 'roles', label: '角色管理', perm: 'manage:roles', icon: <VerifiedUserIcon />, desc: '角色分级与入口可见性' },
+    { key: 'layouts', label: '页面布局管理', perm: 'manage:settings', icon: <DashboardIcon />, desc: '编辑各页面的布局及功能文案' },
   ];
   const [tc, setTc] = useState(defaultTC);
 
@@ -2504,6 +2508,7 @@ const ManagePage: React.FC = () => {
         </Button>
       </DialogActions>
     </Dialog>
+    {tb === 'layouts' && <PageLayoutAdmin />}
   </Box>
   </PageEditProvider>
 );
