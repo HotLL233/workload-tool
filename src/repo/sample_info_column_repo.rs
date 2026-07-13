@@ -52,14 +52,14 @@ pub fn list_active_by_type(pool: &DbPool, type_key: &str) -> Result<Vec<SampleIn
 
         UNION ALL
 
-        -- 预置列（可见性表中标记为该类型可见的）
+        -- 预置列：LEFT JOIN visibility，无 visibility 行时默认可见
         SELECT c.id, c.field_key, c.label, c.data_type, c.is_predefined, c.is_required, c.is_active,
                c.width, c.sort_order, c.options, c.show_in_list, c.show_in_export, c.show_in_form,
                c.type_key, c.created_at, c.updated_at
         FROM sample_info_columns c
-        INNER JOIN sample_info_column_visibility v ON v.column_id = c.id
+        LEFT JOIN sample_info_column_visibility v ON v.column_id = c.id AND v.type_key = ?1
         WHERE c.is_active = 1 AND c.is_predefined = 1
-          AND v.type_key = ?1 AND v.is_visible = 1
+          AND (v.is_visible = 1 OR v.is_visible IS NULL)
 
         ORDER BY sort_order ASC
     ";

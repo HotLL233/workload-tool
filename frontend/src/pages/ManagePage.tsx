@@ -30,6 +30,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PeopleIcon from '@mui/icons-material/People';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { getGroups, createGroup, updateGroup, deleteGroup, getProjects, createProject, updateProject, deleteProject, getRecords, restoreRecord, getAuditLogs, batchProjectCoefficient, getBackupStatus, backupNow, getBackupConfig, updateBackupConfig, deleteBackup, restoreBackup, restoreBackupFile, getMethodTypes, createMethodType, updateMethodType, deleteMethodType, getMethods, createMethod, updateMethod, deleteMethod, methodImport, getImportMappings, getHelpDocuments, uploadHelpDocument, updateHelpDocument, deleteHelpDocument, getHelpDocumentFileUrl, getHelpArticles, deleteHelpArticle, updateHelpArticle, getSampleInfoTypesAll, getSampleInfoRecords, updateSampleInfo, deleteSampleInfo, getSampleInfoTypes, getSampleInfoStats, createSampleInfoType, updateSampleInfoType, deleteSampleInfoType, exportSampleInfo, getDivisions, createDivision, updateDivision, deleteDivision, setDivisionLabs, getSampleInfoColumns, createSampleInfoColumn, updateSampleInfoColumn, deleteSampleInfoColumn, reorderSampleInfoColumns, userList, userRegister, updateUser, deleteUser, getRoles, updateSetting } from '../api/client';
 import type { ProjectGroup, Project, WorkRecord, AuditLog, BackupStatus, MethodType, Method, ImportMapping, HelpDocument, HelpArticle, SampleInfoType, SampleInfoRecord, Division, SampleInfoColumn, User, UserUpdate, Role, RoleWithPermissions, SystemSetting, HomeCard, StatCard, ManageTab } from '../types';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -405,11 +406,16 @@ const ManagePage: React.FC = () => {
   const delSiType = (id: number) => {
     setCa(() => async () => {
       const r = await deleteSampleInfoType(id);
-      if (r.code === 0) { sm('删除成功'); loadSiTypes(); }
+      if (r.code === 0) { sm('已停用（可在下方恢复）'); loadSiTypes(); }
       else sm(r.message, true);
       setCo(false);
     });
     setCo(true);
+  };
+  const restoreSiType = async (id: number) => {
+    const r = await updateSampleInfoType(id, { is_active: 1 });
+    if (r.code === 0) { sm('已恢复启用'); loadSiTypes(); }
+    else sm(r.message, true);
   };
 
   // ④ 列配置 CRUD
@@ -1254,7 +1260,11 @@ const ManagePage: React.FC = () => {
                   <TableCell align="right">
                     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
                       <IconButton size="small" onClick={() => editSiType(t)} sx={{ color: '#2e7d32' }}><EditIcon fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => delSiType(t.id)}><DeleteIcon fontSize="small" /></IconButton>
+                      {t.is_active ? (
+                        <IconButton size="small" color="error" title="软删除（设为停用）" onClick={() => delSiType(t.id)}><DeleteIcon fontSize="small" /></IconButton>
+                      ) : (
+                        <IconButton size="small" color="primary" title="恢复启用" onClick={() => restoreSiType(t.id)}><RefreshIcon fontSize="small" /></IconButton>
+                      )}
                     </Box>
                   </TableCell>
                 </TableRow>

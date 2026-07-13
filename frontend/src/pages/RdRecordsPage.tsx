@@ -155,28 +155,28 @@ const RdRecordsPage: React.FC = () => {
     // 已取样不可展开编辑
     if (rec.status === '已取样') return;
     setExpandedId(rec.id);
-    setEditForm({
-      user_name: rec.user_name || '',
-      project_id: rec.project_id,
-      method_id: rec.method_id ?? '',
-      quantity: rec.quantity,
-      batch_no: rec.batch_no || '',
-      notes: rec.notes || '',
+    // v0.4.56: 动态构建编辑表单（从 columns 中取所有 show_in_list 字段）
+    const init: Record<string, any> = {};
+    columns.filter(c => c.show_in_list).forEach(c => {
+      if (c.is_predefined) init[c.name] = (rec as any)[c.name] ?? '';
+      else init[c.name] = (rec as any).extra?.[c.name] ?? '';
     });
+    setEditForm(init);
   };
 
-  // v0.4.34: 保存行内编辑
+  // v0.4.56: 保存行内编辑（动态字段）
   const handleSave = async (rec: WorkRecord) => {
     setSaving(true);
     try {
       const data: any = {};
-      if (editForm.user_name !== rec.user_name) data.user_name = editForm.user_name;
-      if (Number(editForm.quantity) !== rec.quantity) data.quantity = Number(editForm.quantity);
-      if (editForm.batch_no !== (rec.batch_no || '')) data.batch_no = editForm.batch_no;
-      if (editForm.notes !== (rec.notes || '')) data.notes = editForm.notes;
-      if (editForm.project_id !== rec.project_id) data.project_id = Number(editForm.project_id);
-      const newMid = editForm.method_id === '' ? null : Number(editForm.method_id);
-      if (newMid !== rec.method_id) data.method_id = newMid;
+      columns.filter(c => c.show_in_list && c.is_predefined).forEach(c => {
+        const oldVal = (rec as any)[c.name];
+        const newVal = editForm[c.name];
+        if (newVal !== oldVal && newVal !== undefined && newVal !== '') {
+          if (c.data_type === 'number') data[c.name] = Number(newVal);
+          else data[c.name] = newVal;
+        }
+      });
       if (Object.keys(data).length === 0) {
         setSnackMsg('没有需要修改的字段'); setSnackErr(true);
         setSaving(false);
@@ -324,40 +324,66 @@ const RdRecordsPage: React.FC = () => {
                           编辑记录 #{page * pageSize + idx + 1}
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-                          <TextField label="送样人" size="small" value={editForm.user_name || ''}
-                            onChange={e => setEditForm(p => ({ ...p, user_name: e.target.value }))}
-                            sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }} />
-                          <FormControl size="small" sx={{ minWidth: 160 }}>
-                            <Select value={editForm.project_id ?? ''} displayEmpty
-                              onChange={e => {
-                                const pid = e.target.value === '' ? null : Number(e.target.value);
-                                setEditForm(p => ({ ...p, project_id: pid, method_id: '' }));
-                              }}
-                              sx={{ fontSize: '0.8rem', borderRadius: R }}>
-                              <MenuItem value=""><em>选择项目</em></MenuItem>
-                              {projects.map(p => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
-                            </Select>
-                          </FormControl>
-                          <FormControl size="small" sx={{ minWidth: 180 }}>
-                            <Select value={editForm.method_id} displayEmpty
-                              onChange={e => setEditForm(p => ({ ...p, method_id: e.target.value }))}
-                              sx={{ fontSize: '0.8rem', borderRadius: R }}>
-                              <MenuItem value=""><em>选择方法</em></MenuItem>
-                              {getAvailableMethods(editForm.project_id || null).map(m => (
-                                <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-                          <TextField label="数量" type="number" size="small" value={editForm.quantity ?? 1}
-                            onChange={e => setEditForm(p => ({ ...p, quantity: Math.max(1, Number(e.target.value) || 1) }))}
-                            inputProps={{ min: 1, style: { textAlign: 'center' } }}
-                            sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }} />
-                          <TextField label="批号" size="small" value={editForm.batch_no || ''}
-                            onChange={e => setEditForm(p => ({ ...p, batch_no: e.target.value }))}
-                            sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }} />
-                          <TextField label="注意事项" size="small" value={editForm.notes || ''}
-                            onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))}
-                            sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }} />
+                          {columns.filter(c => c.show_in_list && c.is_predefined).map(col => {
+                            if (col.name === 'seq_no' || col.name === 'status' || col.name === 'group_name') return null;
+                            if (col.name === 'division_id') return (
+                              <TextField key={col.name} select size="small" label={col.label}
+                                value={editForm.division_id ?? ''}
+                                onChange={e => setEditForm(p => ({ ...p, division_id: e.target.value ? Number(e.target.value) : null }))}
+                                sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                                SelectProps={{ native: true }}>
+                                <option value="">-</option>
+                                {divs.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                              </TextField>
+                            );
+                            if (col.name === 'project_id') return (
+                              <FormControl key={col.name} size="small" sx={{ minWidth: 160 }}>
+                                <Select value={editForm.project_id ?? ''} displayEmpty
+                                  onChange={e => {
+                                    const pid = e.target.value === '' ? null : Number(e.target.value);
+                                    setEditForm(p => ({ ...p, project_id: pid, method_id: '' }));
+                                  }}
+                                  sx={{ fontSize: '0.8rem', borderRadius: R }}>
+                                  <MenuItem value=""><em>选择项目</em></MenuItem>
+                                  {projects.map((p: any) => <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>)}
+                                </Select>
+                              </FormControl>
+                            );
+                            if (col.name === 'method_id' || col.name === 'method_name') return (
+                              <FormControl key={col.name} size="small" sx={{ minWidth: 180 }}>
+                                <Select value={editForm.method_id ?? ''} displayEmpty
+                                  onChange={e => setEditForm(p => ({ ...p, method_id: e.target.value }))}
+                                  sx={{ fontSize: '0.8rem', borderRadius: R }}>
+                                  <MenuItem value=""><em>选择方法</em></MenuItem>
+                                  {getAvailableMethods(editForm.project_id || null).map((m: any) => (
+                                    <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            );
+                            if (col.name === 'quantity') return (
+                              <TextField key={col.name} label={col.label} type="number" size="small" value={editForm.quantity ?? 1}
+                                onChange={e => setEditForm(p => ({ ...p, quantity: Math.max(1, Number(e.target.value) || 1) }))}
+                                inputProps={{ min: 1, style: { textAlign: 'center' } }}
+                                sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }} />
+                            );
+                            if (col.name === 'detection_type') return (
+                              <TextField key={col.name} select size="small" label={col.label}
+                                value={editForm.detection_type || (rec as any).detection_type || ''}
+                                disabled
+                                sx={{ minWidth: 120, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                                SelectProps={{ native: true }}>
+                                <option value="{(rec as any).detection_type || ''}">{(rec as any).detection_type || '-'}</option>
+                              </TextField>
+                            );
+                            // Default: text input
+                            return (
+                              <TextField key={col.name} label={col.label} size="small"
+                                value={editForm[col.name] ?? ''}
+                                onChange={e => setEditForm(p => ({ ...p, [col.name]: e.target.value }))}
+                                sx={{ minWidth: Math.min(col.width || 140, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }} />
+                            );
+                          })}
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                           <Button variant="outlined" size="small" onClick={() => { setExpandedId(null); setEditForm({}); }}
