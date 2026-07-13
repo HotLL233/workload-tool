@@ -9,7 +9,8 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import AddIcon from '@mui/icons-material/Add';
-import type { FieldDef } from '../types/layout';
+import type { FieldDef, TableConfig, FormLayout } from '../types/layout';
+import { DEFAULT_TABLE_CONFIG } from '../types/layout';
 import { getSetting, updateSetting } from '../api/client';
 
 const R = '2px';
@@ -72,6 +73,7 @@ const FIELD_TYPES: string[] = ['text', 'number', 'select', 'datetime', 'textarea
 const ManageFormConfig: React.FC = () => {
   const [tab, setTab] = useState(0);
   const [fields, setFields] = useState<FieldDef[]>([]);
+  const [tableConfig, setTableConfig] = useState<TableConfig>({ ...DEFAULT_TABLE_CONFIG });
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -81,15 +83,25 @@ const ManageFormConfig: React.FC = () => {
   const template = FORM_TEMPLATES[tab];
   const key = template?.key;
 
-  // 加载
+  // 加载（兼容新旧格式）
   const load = useCallback(async (k: string) => {
     setLoading(true);
     try {
       const r = await getSetting(k);
       if (r.code === 0 && r.data) {
-        const parsed = JSON.parse(r.data.value) as FieldDef[];
+        const parsed = JSON.parse(r.data.value);
+        // 新格式（v0.4.50+）：{ table_config, fields }
+        if (!Array.isArray(parsed) && parsed.fields) {
+          setFields((parsed.fields as FieldDef[]).sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99)));
+          setTableConfig({ ...DEFAULT_TABLE_CONFIG, ...parsed.table_config });
+          setDirty(false);
+          setLoading(false);
+          return;
+        }
+        // 旧格式（v0.4.49-）：FieldDef[]
         if (Array.isArray(parsed) && parsed.length > 0) {
           setFields(parsed.sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99)));
+          setTableConfig({ ...DEFAULT_TABLE_CONFIG });
           setDirty(false);
           setLoading(false);
           return;
@@ -98,6 +110,7 @@ const ManageFormConfig: React.FC = () => {
     } catch {}
     // 默认值
     setFields(template.defaultFields);
+    setTableConfig({ ...DEFAULT_TABLE_CONFIG });
     setDirty(false);
     setLoading(false);
   }, []);
@@ -156,7 +169,8 @@ const ManageFormConfig: React.FC = () => {
     try {
       // 重新编号 sort_order
       const sorted = fields.map((f, i) => ({ ...f, sort_order: i + 1 }));
-      const r = await updateSetting(key, sorted);
+      const formLayout: FormLayout = { table_config: tableConfig, fields: sorted };
+      const r = await updateSetting(key, formLayout);
       if (r.code === 0) {
         setFields(sorted);
         setDirty(false);
@@ -176,12 +190,18 @@ const ManageFormConfig: React.FC = () => {
   const reset = () => {
     if (!key) return;
     setFields(template.defaultFields);
+    setTableConfig({ ...DEFAULT_TABLE_CONFIG });
+    setDirty(true);
+  };
+
+  const updateTableConfig = (patch: Partial<TableConfig>) => {
+    setTableConfig(prev => ({ ...prev, ...patch }));
     setDirty(true);
   };
 
   // 预览表头
   const visibleFields = fields.filter(f => f.visible !== false).sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99));
-  const totalWidth = visibleFields.reduce((s, f) => s + (f.width || 100), 0);
+  const totalWidth = visibleFields.reduce((s, f) => s + (f.width || 100), 0) + tableConfig.seq_column_width + tableConfig.checkbox_column_width;
 
   return (
     <Box>
@@ -195,6 +215,25 @@ const ManageFormConfig: React.FC = () => {
         <Typography variant="body2" sx={{ color: '#999', p: 2 }}>加载中…</Typography>
       ) : (
         <>
+          {/* v0.4.50: 表格全局设置 */}
+          <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#fafafa' }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, color: '#555' }}>表格全局设置</Typography>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <TextField size="small" type="number" label="行高" value={tableConfig.row_height}
+                onChange={e => updateTableConfig({ row_height: Number(e.target.value) || 48 })}
+                sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                inputProps={{ min: 24, max: 120, style: { textAlign: 'center' } }} />
+              <TextField size="small" type="number" label="序号列宽" value={tableConfig.seq_column_width}
+                onChange={e => updateTableConfig({ seq_column_width: Number(e.target.value) || 50 })}
+                sx={{ width: 110, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                inputProps={{ min: 20, max: 200, style: { textAlign: 'center' } }} />
+              <TextField size="small" type="number" label="复选框列宽" value={tableConfig.checkbox_column_width}
+                onChange={e => updateTableConfig({ checkbox_column_width: Number(e.target.value) || 36 })}
+                sx={{ width: 110, '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                inputProps={{ min: 20, max: 100, style: { textAlign: 'center' } }} />
+            </Box>
+          </Paper>
+
           {/* 字段列表 */}
           <Typography variant="subtitle2" sx={{ mb: 1, color: '#555' }}>
             字段定义（共 {fields.length} 个，可见 {visibleFields.length} 个）
@@ -278,9 +317,12 @@ const ManageFormConfig: React.FC = () => {
             <TableContainer>
               <Table size="small" sx={{ minWidth: Math.max(totalWidth + 80, 600) }}>
                 <TableHead>
-                  <TableRow>
-                    <TableCell padding="checkbox" sx={{ borderRight: '1px solid #ddd' }}>
+                  <TableRow sx={{ height: tableConfig.row_height }}>
+                    <TableCell padding="checkbox" sx={{ borderRight: '1px solid #ddd', width: tableConfig.checkbox_column_width }}>
                       <Typography fontSize="0.7rem">☐</Typography>
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap', borderRight: '1px solid #ddd', width: tableConfig.seq_column_width, textAlign: 'center' }}>
+                      序号
                     </TableCell>
                     {visibleFields.map(f => (
                       <TableCell key={f.key} sx={{
@@ -293,9 +335,12 @@ const ManageFormConfig: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  <TableRow>
-                    <TableCell padding="checkbox" sx={{ borderRight: '1px solid #ddd' }}>
+                  <TableRow sx={{ height: tableConfig.row_height }}>
+                    <TableCell padding="checkbox" sx={{ borderRight: '1px solid #ddd', width: tableConfig.checkbox_column_width }}>
                       <Typography fontSize="0.7rem">☐</Typography>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.7rem', textAlign: 'center', borderRight: '1px solid #ddd', width: tableConfig.seq_column_width, color: '#999' }}>
+                      1
                     </TableCell>
                     {visibleFields.map(f => (
                       <TableCell key={f.key} sx={{
@@ -303,7 +348,7 @@ const ManageFormConfig: React.FC = () => {
                         width: f.width || 100,
                       }}>
                         <Box sx={{
-                          height: 28, bgcolor: '#f5f5f5', borderRadius: R,
+                          height: Math.min(tableConfig.row_height - 16, 28), bgcolor: '#f5f5f5', borderRadius: R,
                           display: 'flex', alignItems: 'center', px: 1,
                         }}>
                           <Typography fontSize="0.7rem" color="#999">

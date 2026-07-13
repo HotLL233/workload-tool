@@ -20,7 +20,8 @@ import {
   getSampleInfoAttachments, uploadSampleInfoAttachment, getSampleInfoAttachmentUrl,
   deleteSampleInfoAttachment, batchGetSampleInfoAttachments, getSetting,
 } from '../api/client';
-import type { FieldDef } from '../types/layout';
+import type { FieldDef, TableConfig } from '../types/layout';
+import { DEFAULT_TABLE_CONFIG } from '../types/layout';
 import type { SampleInfoRecord, SampleInfoType, Division, SampleInfoColumn, SampleInfoAttachment } from '../types';
 import { useUser } from '../UserContext';
 
@@ -164,11 +165,19 @@ const SampleInfoEntry: React.FC = () => {
 
   // v0.4.49: 从 form_sample_info_entry 加载表单字段配置（ManageFormConfig 统一管理）
   const [formDefs, setFormDefs] = useState<FieldDef[]>([]);
+  const [tableConfig, setTableConfig] = useState<TableConfig>({ ...DEFAULT_TABLE_CONFIG });
   useEffect(() => {
     getSetting('form_sample_info_entry').then(r => {
       if (r.code === 0 && r.data) {
         try {
-          const parsed = JSON.parse(r.data.value) as FieldDef[];
+          const parsed = JSON.parse(r.data.value);
+          // v0.4.50+: FormLayout {table_config, fields}
+          if (!Array.isArray(parsed) && parsed.fields) {
+            setFormDefs(Array.isArray(parsed.fields) ? parsed.fields : []);
+            if (parsed.table_config) setTableConfig({ ...DEFAULT_TABLE_CONFIG, ...parsed.table_config });
+            return;
+          }
+          // v0.4.49: FieldDef[]
           if (Array.isArray(parsed) && parsed.length > 0) setFormDefs(parsed);
         } catch {}
       }
@@ -464,7 +473,7 @@ const SampleInfoEntry: React.FC = () => {
           <Table size="small" stickyHeader sx={{ minWidth: 1100 }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700, p: 1, width: 40 }}>
+                <TableCell sx={{ fontWeight: 700, p: 1, width: tableConfig.checkbox_column_width }}>
                   <Checkbox
                     size="small"
                     checked={rows.length > 0 && rows.every(r => r.checked)}
@@ -475,7 +484,7 @@ const SampleInfoEntry: React.FC = () => {
                     }}
                   />
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, p: 1, width: 50 }}>序号</TableCell>
+                <TableCell sx={{ fontWeight: 700, p: 1, width: tableConfig.seq_column_width }}>序号</TableCell>
                 {formColumns.map(col => (
                   <TableCell key={col.field_key} sx={{ fontWeight: 700, p: 1, minWidth: col.data_type === 'attachment' ? 130 : col.width || 100 }}>
                     {col.label}{col.is_required ? ' *' : ''}
@@ -549,7 +558,7 @@ const SampleInfoEntry: React.FC = () => {
                 <TableHead>
                   <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                     <TableCell sx={{ fontWeight: 700, fontSize: '0.875rem', color: '#666', width: 70, borderColor: '#e0e0e0' }}>状态</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: '0.875rem', color: '#666', width: 50, borderColor: '#e0e0e0' }}>序号</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: '0.875rem', color: '#666', width: tableConfig.seq_column_width, borderColor: '#e0e0e0' }}>序号</TableCell>
                     {listColumns.filter(c => !['status', 'seq_no'].includes(c.field_key)).map(col => (
                       <TableCell key={col.field_key} sx={{ fontWeight: 700, fontSize: '0.875rem', color: '#666', minWidth: col.data_type === 'attachment' ? 130 : col.width || 80, borderColor: '#e0e0e0' }}>
                         {col.label}

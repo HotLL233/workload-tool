@@ -30,3 +30,22 @@ export interface DragItem {
   fieldType?: FieldDef['type'];
   fromIndex?: number;
 }
+
+// v0.4.50: 表格全局配置
+export interface TableConfig {
+  row_height: number;
+  seq_column_width: number;
+  checkbox_column_width: number;
+}
+
+export const DEFAULT_TABLE_CONFIG: TableConfig = {
+  row_height: 48,
+  seq_column_width: 50,
+  checkbox_column_width: 36,
+};
+
+/** v0.4.50: 统一表单布局格式（兼容旧版数组格式） */
+export interface FormLayout {
+  table_config: TableConfig;
+  fields: FieldDef[];
+}

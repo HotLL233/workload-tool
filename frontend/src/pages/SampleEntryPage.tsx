@@ -10,7 +10,8 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import SendIcon from '@mui/icons-material/Send';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Project, Method, MethodType, WorkRecord, ProjectGroup, Division } from '../types';
-import type { FieldDef } from '../types/layout';
+import type { FieldDef, TableConfig } from '../types/layout';
+import { DEFAULT_TABLE_CONFIG } from '../types/layout';
 import { getProjects, getMethods, createRdRecord, getMethodTypes, getGroups, getRdRecords, sampleRdRecord, getDivisions, getSetting } from '../api/client';
 import { useUser } from '../UserContext';
 
@@ -77,6 +78,7 @@ const SampleEntryPage: React.FC = () => {
 
   // v0.4.36: 页面布局字段
   const [layoutFields, setLayoutFields] = useState<FieldDef[]>(DEFAULT_LAYOUT_FIELDS);
+  const [tableConfig, setTableConfig] = useState<TableConfig>({ ...DEFAULT_TABLE_CONFIG });
 
   const [dateTime, setDateTime] = useState(() => {
     const now = new Date();
@@ -154,13 +156,21 @@ const SampleEntryPage: React.FC = () => {
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { loadTodayRecords(); }, [loadTodayRecords]);
   // v0.4.49: 统一从 form_sample_entry 加载（ManageFormConfig 写入），兼容旧 key
+  // v0.4.50: 兼容 FormLayout 格式（{table_config, fields}）
   useEffect(() => {
     const loadFields = async () => {
       // 尝试新 key
       let r = await getSetting('form_sample_entry');
       if (r.code === 0 && r.data) {
         try {
-          const parsed = JSON.parse(r.data.value) as FieldDef[];
+          const parsed = JSON.parse(r.data.value);
+          // 新格式（v0.4.50+）：{ table_config, fields }
+          if (!Array.isArray(parsed) && parsed.fields) {
+            if (Array.isArray(parsed.fields) && parsed.fields.length > 0) setLayoutFields(parsed.fields);
+            if (parsed.table_config) setTableConfig({ ...DEFAULT_TABLE_CONFIG, ...parsed.table_config });
+            return;
+          }
+          // 旧格式（v0.4.49）：FieldDef[]
           if (Array.isArray(parsed) && parsed.length > 0) { setLayoutFields(parsed); return; }
         } catch {}
       }
@@ -488,7 +498,7 @@ const SampleEntryPage: React.FC = () => {
                       setRows(prev => prev.map(r => ({ ...r, checked: !allChecked })));
                     }} />
                 </TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 40, textAlign: 'center' }}>序号</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: tableConfig.seq_column_width, textAlign: 'center' }}>序号</TableCell>
                 {visibleLayoutFields.map(field => (
                   <TableCell key={field.key} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: `${(field.width || 100) / 10}%`, minWidth: field.width || 80 }}>
                     {field.label}
@@ -501,7 +511,7 @@ const SampleEntryPage: React.FC = () => {
                 const availableTypes = getAvailableTypes(row.project_id);
                 const availableMethods = getAvailableMethods(row.project_id, row.method_type);
                 return (
-                <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 }, height: 48 }}>
+                <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 }, height: tableConfig.row_height }}>
                   <TableCell padding="checkbox">
                     <Checkbox size="small" checked={row.checked} onChange={() => toggleCheck(row.id)} />
                   </TableCell>
@@ -665,7 +675,7 @@ const SampleEntryPage: React.FC = () => {
             <Table size="small" sx={{ minWidth: 960 }}>
               <TableHead>
                 <TableRow sx={{ bgcolor: 'rgba(230,81,0,0.06)' }}>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 40, textAlign: 'center' }}>序号</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: tableConfig.seq_column_width, textAlign: 'center' }}>序号</TableCell>
                   {visibleLayoutFields.map(field => (
                     <TableCell
                       key={field.key}
