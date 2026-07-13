@@ -149,6 +149,7 @@ const SampleInfoStatsPage: React.FC = () => {
         <Typography variant="body2" color="text.secondary">{pct}%</Typography>
       </Box>
     );
+
   };
 
   const n = (val: any) => val ?? "-";

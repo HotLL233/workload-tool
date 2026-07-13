@@ -184,24 +184,24 @@ const RdRecordsPage: React.FC = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-        
+    
         <IconButton onClick={() => navigate(-1)} sx={{ bgcolor: 'rgba(230,81,0,0.08)', '&:hover': { bgcolor: 'rgba(230,81,0,0.15)' } }}>
           <ArrowBackIcon />
         </IconButton>
         <Typography variant="h5" fontWeight={700}>研发送样记录</Typography>
-        
+    
       </Box>
-
+    
     {loading && records.length === 0 ? (
-      
+    
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
-      
+    
     ) : records.length === 0 ? (
-      
+    
       <Typography color="text.secondary" textAlign="center" sx={{ py: 6, fontSize: '0.875rem' }}>暂无记录</Typography>
-      
+    
     ) : (
-      
+    
       <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', '& .MuiPaper-root': { borderRadius: R }, overflowX: 'auto' }}>
         <Table size="small" sx={{ minWidth: columns.length * 100 + 60 }}>
           <TableHead>
@@ -368,13 +368,14 @@ const RdRecordsPage: React.FC = () => {
           />
         )}
       </TableContainer>
-      
+    
     )}
-
+    
     <Snackbar open={!!snackMsg} autoHideDuration={3000} onClose={() => setSnackMsg('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
       <Alert severity={snackErr ? 'error' : 'success'} sx={{ borderRadius: R }} onClose={() => setSnackMsg('')}>{snackMsg}</Alert>
     </Snackbar>
-  </Box>
+    </Box>
   );
+
 };
 export default RdRecordsPage;

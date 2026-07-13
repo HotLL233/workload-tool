@@ -34,10 +34,9 @@ const SampleInfoHome: React.FC = () => {
   }, []);
 
   return (
-    
     <Box sx={{ maxWidth: 900, mx: 'auto', mt: { xs: 1, md: 3 }, px: { xs: 1, md: 2 } }}>
       {/* 顶部标题栏 */}
-      
+    
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 1 }}>
         <IconButton onClick={() => n('/')} size="small"><ArrowBackIcon /></IconButton>
         <Box sx={{ flex: 1 }}>
@@ -49,8 +48,8 @@ const SampleInfoHome: React.FC = () => {
           查看统计
         </Button>
       </Box>
-      
-
+    
+    
       {loading ? (
         <Box sx={{ textAlign: 'center', py: 8 }}><CircularProgress size={36} /></Box>
       ) : error ? (
@@ -62,7 +61,7 @@ const SampleInfoHome: React.FC = () => {
       ) : (
         <>
           {/* 大类卡片（从数据库读取） */}
-          
+    
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {cats.map((cat) => (
               <Grid item xs={12} sm={6} key={cat.type_key}>
@@ -86,10 +85,10 @@ const SampleInfoHome: React.FC = () => {
               </Grid>
             ))}
           </Grid>
-          
+    
         </>
       )}
-
+    
       {/* 底部链接 */}
       <Box sx={{ textAlign: 'center' }}>
         <Paper
@@ -107,7 +106,7 @@ const SampleInfoHome: React.FC = () => {
         </Paper>
       </Box>
     </Box>
-    
   );
+
 };
 export default SampleInfoHome;

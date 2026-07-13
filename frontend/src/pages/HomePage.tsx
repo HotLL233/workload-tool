@@ -87,19 +87,18 @@ const HomePage: React.FC = () => {
   const visibleCards = cards.filter((c) => hasPermission(c.perm));
 
   return (
-    
     <Box sx={{ maxWidth: 900, mx: 'auto', mt: { xs: 2, md: 6 } }}>
       {/* 编辑模式切换 */}
-
+    
       {/* Header */}
-      
+    
       <Box sx={{ textAlign: 'center', mb: 5 }}>
         <Typography variant="h3" fontWeight={800} sx={{ fontFamily: '"方正舒体", "FZSJ-KAFJT", "KaiTi", "STKaiti", "cursive", serif', color: primaryColor, mb: 1, fontSize: { xs: '2.8rem', md: '4rem' } }}>
           {logoText}
         </Typography>
       </Box>
-      
-
+    
+    
       {visibleCards.length === 0 ? (
         <Box sx={{ textAlign: 'center', mt: 6 }}>
           {isLoggedIn ? (
@@ -114,7 +113,7 @@ const HomePage: React.FC = () => {
           )}
         </Box>
       ) : (
-        
+    
         <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 3, flexWrap: 'wrap', justifyContent: 'center', alignItems: isMobile ? 'center' : undefined, mb: 4 }}>
           {visibleCards.map((c) => (
             <Paper
@@ -141,16 +140,16 @@ const HomePage: React.FC = () => {
             </Paper>
           ))}
         </Box>
-        
+    
       )}
-
-      
+    
+    
       <Box sx={{ textAlign: 'center' }}>
         <Typography variant="body1" color="text.secondary">选择功能入口，开始操作</Typography>
       </Box>
-      
-    </Box>
     
+    </Box>
   );
+
 };
 export default HomePage;

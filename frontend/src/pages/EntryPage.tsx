@@ -178,21 +178,21 @@ const EntryPage: React.FC = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-        
+    
         <IconButton onClick={() => navigate('/workload')} sx={{ bgcolor: 'rgba(30,136,229,0.08)', '&:hover': { bgcolor: 'rgba(30,136,229,0.15)' } }}>
           <ArrowBackIcon />
         </IconButton>
         <Box><Typography variant="h5" fontWeight={700}>工作量录入</Typography><Typography variant="caption" color="text.secondary">选择检测方法并录入数量</Typography>{labName && <Chip label={`实验室: ${labName}`} size="small" color="primary" variant="outlined" sx={{ ml: 1, borderRadius: R, height: 22, fontSize: '0.7rem' }} />}</Box>
-        
+    
       </Box>
-
-      
+    
+    
       {/* 用户 & 时间 */}
       <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center', flexDirection: isMobile ? 'column' : 'row' }}>
       <TextField label="检测人" size="small" value={userName} onChange={e => setUserName(e.target.value)} sx={{ width: isMobile ? '100%' : 140, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
       <TextField label="日期时间" type="datetime-local" size="small" value={dateTime} onChange={e => setDateTime(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: isMobile ? '100%' : 200, '& .MuiOutlinedInput-root': { borderRadius: R } }} />
     </Box>
-
+    
     {/* 类型筛选按钮栏 — 基于方法的 type_names */}
     <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
       <Chip
@@ -215,15 +215,15 @@ const EntryPage: React.FC = () => {
         );
       })}
     </Box>
-
+    
     {/* 方法列表 */}
     {filtered.length === 0
       ? <Typography color="text.secondary" textAlign="center" sx={{ py: 6 }}>{typeFilter !== '全部' ? `无 "${typeFilter}" 类型的检测方法` : '该实验室暂无关联方法'}</Typography>
       : filtered.map(m => (
         <MethodRow key={m.id} method={m} linkedProjectName={projects.find(p => (p.method_ids || []).includes(m.id))?.name} onSubmit={handleSubmit} isMobile={isMobile} />
       ))}
-      
-
+    
+    
     {/* 今日记录 */}
     <Box sx={{ mt: 3 }}>
       <Typography variant="h6" fontWeight={600} sx={{ mb: 1.5 }}>
@@ -285,12 +285,13 @@ const EntryPage: React.FC = () => {
         </TableContainer>
       )}
     </Box>
-
+    
     <Snackbar open={!!snackMsg} autoHideDuration={3000} onClose={() => setSnackMsg('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
       <Alert severity={snackErr ? 'error' : 'success'} sx={{ borderRadius: R }} onClose={() => setSnackMsg('')}>{snackMsg}</Alert>
     </Snackbar>
-  </Box>
+    </Box>
   );
+
 };
 
 /** 内联方法行组件 — 显示方法名、类型标签、系数、关联项目名，并提供录入入口 */

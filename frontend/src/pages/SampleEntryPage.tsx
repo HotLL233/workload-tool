@@ -13,6 +13,7 @@ import type { Project, Method, MethodType, WorkRecord, ProjectGroup, Division } 
 import type { FieldDef } from '../types/layout';
 import { getProjects, getMethods, createRdRecord, getMethodTypes, getGroups, getRdRecords, sampleRdRecord, getDivisions, getSetting } from '../api/client';
 import { useUser } from '../UserContext';
+import { PageEditProvider, PageEditToggle } from '../components/PageSectionEditor';
 
 
 const R = '2px';
@@ -479,7 +480,7 @@ const SampleEntryPage: React.FC = () => {
                 </TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 40, textAlign: 'center' }}>序号</TableCell>
                 {visibleLayoutFields.map(field => (
-                  <TableCell key={field.key} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', minWidth: field.width || 100 }}>
+                  <TableCell key={field.key} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: `${(field.width || 100) / 10}%`, minWidth: field.width || 80 }}>
                     {field.label}
                   </TableCell>
                 ))}
@@ -496,11 +497,21 @@ const SampleEntryPage: React.FC = () => {
                   </TableCell>
                   <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>{idx + 1}</TableCell>
                   {visibleLayoutFields.map(field => {
+                    if (field.key === 'lab_name') {
+                      // 实验室列：整页共用一个 lab（从 URL group_id 读取），不可编辑
+                      return (
+                        <TableCell key={field.key} sx={{ p: 0.5 }}>
+                          <TextField size="small" value={labName} disabled
+                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem', bgcolor: '#f5f5f5' } }}
+                            inputProps={{ style: { padding: '2px 6px' } }} />
+                        </TableCell>
+                      );
+                    }
                     if (field.key === 'user_name') {
                       return (
                         <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" value={row.user_name} onChange={e => updateRow(row.id, { user_name: e.target.value })}
-                            sx={{ width: Math.min(field.width || 120, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             inputProps={{ style: { padding: '2px 6px' } }} />
                         </TableCell>
                       );
@@ -510,7 +521,7 @@ const SampleEntryPage: React.FC = () => {
                         <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" select value={row.division_id ?? ''}
                             onChange={e => updateRow(row.id, { division_id: e.target.value ? Number(e.target.value) : null })}
-                            sx={{ width: Math.min(field.width || 140, 160), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
                             <option value="">-</option>
                             {divs.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -533,7 +544,7 @@ const SampleEntryPage: React.FC = () => {
                                 method_name: '',
                               });
                             }}
-                            sx={{ width: Math.min(field.width || 150, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
                             <option value="">-</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -549,7 +560,7 @@ const SampleEntryPage: React.FC = () => {
                               const mt = e.target.value;
                               updateRow(row.id, { method_type: mt, method_id: null, method_name: '' });
                             }}
-                            sx={{ width: Math.min(field.width || 110, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}
                             disabled={!row.project_id}>
                             <option value="">-</option>
@@ -567,7 +578,7 @@ const SampleEntryPage: React.FC = () => {
                               const meth = availableMethods.find(m => m.id === mid);
                               updateRow(row.id, { method_id: mid, method_name: meth?.name || '' });
                             }}
-                            sx={{ width: Math.min(field.width || 180, 220), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}
                             disabled={!row.project_id}>
                             <option value="">-</option>
@@ -581,7 +592,7 @@ const SampleEntryPage: React.FC = () => {
                         <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField type="number" size="small" value={row.quantity}
                             onChange={e => updateRow(row.id, { quantity: Math.max(1, Number(e.target.value) || 1) })}
-                            sx={{ width: Math.min(field.width || 80, 100), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             inputProps={{ min: 1, style: { padding: '2px 6px', textAlign: 'center' } }} />
                         </TableCell>
                       );
@@ -590,7 +601,7 @@ const SampleEntryPage: React.FC = () => {
                       return (
                         <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" value={row.batch_no} onChange={e => updateRow(row.id, { batch_no: e.target.value })}
-                            sx={{ width: Math.min(field.width || 100, 140), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             inputProps={{ style: { padding: '2px 6px' } }} />
                         </TableCell>
                       );
@@ -599,7 +610,7 @@ const SampleEntryPage: React.FC = () => {
                       return (
                         <TableCell key={field.key} sx={{ p: 0.5 }}>
                           <TextField size="small" value={row.notes} onChange={e => updateRow(row.id, { notes: e.target.value })}
-                            sx={{ minWidth: Math.min(field.width || 130, 200), '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
                             inputProps={{ style: { padding: '2px 6px' } }} />
                         </TableCell>
                       );
@@ -697,9 +708,10 @@ const SampleEntryPage: React.FC = () => {
   );
 
   return (
-    <>
+    <PageEditProvider>
+      <PageEditToggle />
       {pageContent}
-    </>
+    </PageEditProvider>
   );
 };
 

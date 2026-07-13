@@ -334,6 +334,7 @@ const SampleInfoEntry: React.FC = () => {
             </Select>
           </FormControl>
         );
+
       case 'number':
         return (
           <TextField

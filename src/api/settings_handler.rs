@@ -67,6 +67,15 @@ async fn upsert(
 
     // 审计日志
     let conn = pool.get().map_err(AppError::Pool)?;
+    // 在字符边界安全截断（避免 UTF-8 多字节字符被劈开导致 panic）
+    let max_bytes = value_str.len().min(200);
+    let safe_len = value_str
+        .char_indices()
+        .take_while(|(i, _)| *i < max_bytes)
+        .last()
+        .map(|(i, c)| i + c.len_utf8())
+        .unwrap_or(0);
+
     conn.execute(
         "INSERT INTO audit_log (action, table_name, record_id, user_name, detail, module)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -75,7 +84,7 @@ async fn upsert(
             "system_settings",
             0,
             claims.username,
-            format!("更新系统设置: {} = {}", key, &value_str[..value_str.len().min(200)]),
+            format!("更新系统设置: {} = {}", key, &value_str[..safe_len]),
             "shared",
         ],
     )?;
