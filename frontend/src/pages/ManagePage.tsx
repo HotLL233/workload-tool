@@ -1250,7 +1250,7 @@ const ManagePage: React.FC = () => {
                   <TableCell sx={{ maxWidth: 220 }}>{t.description}</TableCell>
                   <TableCell><Box sx={{ width: 18, height: 18, borderRadius: '4px', bgcolor: t.color, border: '1px solid #ccc' }} /></TableCell>
                   <TableCell>{t.sort_order}</TableCell>
-                  <TableCell><Chip label={t.is_active ? '启用' : '停用'} size="small" color={t.is_active ? 'success' : 'default'} variant={t.is_active ? 'filled' : 'outlined'} /></TableCell>
+                  <TableCell><Chip label={t.is_active ? '启用' : '已停用'} size="small" color={t.is_active ? 'success' : 'error'} variant={t.is_active ? 'filled' : 'outlined'} /></TableCell>
                   <TableCell align="right">
                     <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
                       <IconButton size="small" onClick={() => editSiType(t)} sx={{ color: '#2e7d32' }}><EditIcon fontSize="small" /></IconButton>

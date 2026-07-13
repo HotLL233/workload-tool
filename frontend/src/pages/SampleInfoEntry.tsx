@@ -161,7 +161,7 @@ const SampleInfoEntry: React.FC = () => {
         setRows([emptyRow(cols, user)]);
       }
     }).catch(() => {});
-  }, []);
+  }, [dt]); // v0.4.54: 切换检测类型时重新加载列配置
 
   // v0.4.49: 从 form_sample_info_entry 加载表单字段配置（ManageFormConfig 统一管理）
   const [formDefs, setFormDefs] = useState<FieldDef[]>([]);
@@ -347,7 +347,7 @@ const SampleInfoEntry: React.FC = () => {
     const val = getRowValue(rows[idx], col.field_key);
     switch (col.data_type) {
       case 'attachment':
-        return <Button size="small" startIcon={<AttachFileIcon />}>上传附件</Button>;
+        return <Button size="small" disabled startIcon={<AttachFileIcon />} sx={{ fontSize: '0.7rem', borderRadius: R }}>保存后上传</Button>;
       case 'select':
         return (
           <FormControl fullWidth size="small">
