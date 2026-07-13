@@ -5,7 +5,7 @@
 /** 字段定义（对应 system_settings 中 layout_* 的 JSON 数组元素） */
 export interface FieldDef {
   key: string;
-  type: 'text' | 'select' | 'textarea' | 'number' | 'date' | 'divider' | 'heading';
+  type: 'text' | 'select' | 'textarea' | 'number' | 'date' | 'datetime' | 'divider' | 'heading';
   label: string;
   width: number;
   required: boolean;

@@ -37,8 +37,9 @@ import InlineEditCard from '../components/InlineEditCard';
 import { useUser } from '../UserContext';
 import { hasPermission } from '../constants/permissions';
 import AdminRdRecordColumns from './AdminRdRecordColumns';
+import ManageFormConfig from '../components/ManageFormConfig';
 
-type TV = 'projects' | 'groups' | 'methods' | 'divisions' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo' | 'users' | 'roles' | 'layouts' | 'theme' | 'home' | 'stats';
+type TV = 'projects' | 'groups' | 'methods' | 'divisions' | 'trash' | 'audit' | 'backup' | 'help' | 'sampleinfo' | 'users' | 'roles' | 'layouts' | 'theme' | 'home' | 'stats' | 'forms';
 
 const R = '2px';
 const cSx = { borderRadius: R, fontWeight: 700, border: '1px solid rgba(0,0,0,0.08)' };
@@ -149,6 +150,7 @@ const ManagePage: React.FC = () => {
     { key: 'users', label: '用户管理', perm: 'manage:users', icon: <PeopleIcon />, desc: '注册/编辑用户、分配权限' },
     { key: 'roles', label: '角色管理', perm: 'manage:roles', icon: <VerifiedUserIcon />, desc: '角色分级与入口可见性' },
     { key: 'layouts', label: '页面布局管理', perm: 'manage:settings', icon: <DashboardIcon />, desc: '编辑各页面的布局及功能文案' },
+    { key: 'forms', label: '录入表单配置', perm: 'manage:settings', icon: <ScienceIcon />, desc: '统一配置研发送样/样品信息/分析检测的录入字段' },
   ];
   const [tc, setTc] = useState(defaultTC);
 
@@ -2508,6 +2510,7 @@ const ManagePage: React.FC = () => {
       </DialogActions>
     </Dialog>
     {tb === 'layouts' && <PageLayoutAdmin />}
+    {tb === 'forms' && <ManageFormConfig />}
   </Box>
   
 );

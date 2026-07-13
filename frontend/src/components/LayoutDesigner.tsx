@@ -270,6 +270,7 @@ function getDefaultLabel(type: FieldDef['type']): string {
     textarea: '多行文本',
     number: '数字',
     date: '日期',
+    datetime: '日期时间',
     divider: '分割线',
     heading: '标题',
   };

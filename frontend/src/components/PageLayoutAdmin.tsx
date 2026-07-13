@@ -26,12 +26,12 @@ const R = '2px';
 
 // 哪些页面包含可编辑的字段布局（pageKey → settings key）
 const PAGE_FIELDS: Record<string, string> = {
-  'sample_entry': 'sample_entry_fields',
+  'sample_entry': 'layout_sample_entry_fields',
 };
 
 // 字段默认值（用于重置）
 const DEFAULT_FIELDS: Record<string, FieldDef[]> = {
-  'sample_entry_fields': [
+  'layout_sample_entry_fields': [
     { key: 'user_name', type: 'text', label: '送样人', width: 120, required: false, visible: true, sort_order: 1, placeholder: '' },
     { key: 'division_id', type: 'select', label: '部门', width: 140, required: false, visible: true, sort_order: 2, options: '从用户分组读取' },
     { key: 'lab_name', type: 'text', label: '实验室', width: 150, required: false, visible: true, sort_order: 3, placeholder: '' },

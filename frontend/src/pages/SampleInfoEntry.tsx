@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, TextField, Button, Grid, IconButton,
@@ -18,8 +18,9 @@ import {
   getSampleInfoRecords, createSampleInfo, updateSampleInfo, updateSampleInfoStatus,
   getSampleInfoTypes, getDivisions, getActiveSampleInfoColumns,
   getSampleInfoAttachments, uploadSampleInfoAttachment, getSampleInfoAttachmentUrl,
-  deleteSampleInfoAttachment, batchGetSampleInfoAttachments,
+  deleteSampleInfoAttachment, batchGetSampleInfoAttachments, getSetting,
 } from '../api/client';
+import type { FieldDef } from '../types/layout';
 import type { SampleInfoRecord, SampleInfoType, Division, SampleInfoColumn, SampleInfoAttachment } from '../types';
 import { useUser } from '../UserContext';
 
@@ -161,6 +162,19 @@ const SampleInfoEntry: React.FC = () => {
     }).catch(() => {});
   }, []);
 
+  // v0.4.49: 从 form_sample_info_entry 加载表单字段配置（ManageFormConfig 统一管理）
+  const [formDefs, setFormDefs] = useState<FieldDef[]>([]);
+  useEffect(() => {
+    getSetting('form_sample_info_entry').then(r => {
+      if (r.code === 0 && r.data) {
+        try {
+          const parsed = JSON.parse(r.data.value) as FieldDef[];
+          if (Array.isArray(parsed) && parsed.length > 0) setFormDefs(parsed);
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
+
   const load = useCallback(async () => {
     setLd(true);
     try {
@@ -180,10 +194,20 @@ const SampleInfoEntry: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  // v0.4.49: 用 formDefs（ManageFormConfig 写入）覆盖 columns 的宽度/标签/可见性
+  const mergedColumns: SampleInfoColumn[] = useMemo(() => {
+    if (formDefs.length === 0) return columns;
+    return columns.map((col: SampleInfoColumn) => {
+      const def = formDefs.find(d => d.key === col.field_key);
+      if (!def) return col;
+      return { ...col, width: def.width || col.width, label: def.label || col.label, show_in_form: def.visible !== false, show_in_list: def.visible !== false };
+    });
+  }, [columns, formDefs]);
+
   // 表单列（show_in_form=true）
-  const formColumns = columns.filter(c => c.show_in_form);
+  const formColumns = mergedColumns.filter((c: SampleInfoColumn) => c.show_in_form);
   // 列表列（show_in_list=true）
-  const listColumns = columns.filter(c => c.show_in_list);
+  const listColumns = mergedColumns.filter((c: SampleInfoColumn) => c.show_in_list);
 
   const updateRow = (idx: number, key: string, val: any) => {
     setRows(prev => prev.map((r, i) => {

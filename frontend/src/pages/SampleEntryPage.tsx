@@ -153,16 +153,27 @@ const SampleEntryPage: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { loadTodayRecords(); }, [loadTodayRecords]);
-  // v0.4.44: 直接从 system_settings 加载字段布局（替代 EditablePageShell 回调）
+  // v0.4.49: 统一从 form_sample_entry 加载（ManageFormConfig 写入），兼容旧 key
   useEffect(() => {
-    getSetting('layout_sample_entry_fields').then(r => {
+    const loadFields = async () => {
+      // 尝试新 key
+      let r = await getSetting('form_sample_entry');
+      if (r.code === 0 && r.data) {
+        try {
+          const parsed = JSON.parse(r.data.value) as FieldDef[];
+          if (Array.isArray(parsed) && parsed.length > 0) { setLayoutFields(parsed); return; }
+        } catch {}
+      }
+      // 回退旧 key（v0.4.44-v0.4.48 使用的）
+      r = await getSetting('layout_sample_entry_fields');
       if (r.code === 0 && r.data) {
         try {
           const parsed = JSON.parse(r.data.value) as FieldDef[];
           if (Array.isArray(parsed) && parsed.length > 0) setLayoutFields(parsed);
         } catch {}
       }
-    }).catch(() => {});
+    };
+    loadFields().catch(() => {});
   }, []);
 
   // 该实验室的研发项目所关联的方法
