@@ -4,7 +4,6 @@ import { AppBar, Toolbar, Typography, IconButton, Button, BottomNavigation, Bott
 import HomeIcon from '@mui/icons-material/Home'; import SettingsIcon from '@mui/icons-material/Settings'; import MenuBookIcon from '@mui/icons-material/MenuBook'; import MenuIcon from '@mui/icons-material/Menu'; import InfoIcon from '@mui/icons-material/Info';
 import { useUser } from '../UserContext';
 import { hasAnyPrefix } from '../constants/permissions';
-import { PageEditProvider } from './PageSectionEditor';
 import UserMenu from './UserMenu';
 
 const NAV_ITEMS = [
@@ -61,7 +60,7 @@ const Layout: React.FC = () => {
       </List>
     </Box></Drawer>
 
-    <Box component="main" sx={{ flexGrow: 1, pb: isMobile ? 7 : 2, pt: 2, px: { xs: 1, sm: 2, md: 3 } }}><Container maxWidth="lg" disableGutters={isMobile}><PageEditProvider><Outlet /></PageEditProvider></Container></Box>
+    <Box component="main" sx={{ flexGrow: 1, pb: isMobile ? 7 : 2, pt: 2, px: { xs: 1, sm: 2, md: 3 } }}><Container maxWidth="lg" disableGutters={isMobile}><Outlet /></Container></Box>
 
     {isMobile && <BottomNavigation value={getMobileNav()} onChange={(_e, v: number) => { if (v === 0) navigate('/'); else if (v === 1) navigate('/help'); }} className="glass-bottom-nav" sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: theme.zIndex.appBar, borderTop: '1px solid rgba(0,0,0,0.06)' }}>{MOBILE_NAV.map((item, i) => <BottomNavigationAction key={i} label={item.label} icon={item.icon} />)}</BottomNavigation>}
 

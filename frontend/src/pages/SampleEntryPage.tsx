@@ -13,7 +13,6 @@ import type { Project, Method, MethodType, WorkRecord, ProjectGroup, Division } 
 import type { FieldDef } from '../types/layout';
 import { getProjects, getMethods, createRdRecord, getMethodTypes, getGroups, getRdRecords, sampleRdRecord, getDivisions, getSetting } from '../api/client';
 import { useUser } from '../UserContext';
-import { PageEditProvider, PageEditToggle } from '../components/PageSectionEditor';
 
 
 const R = '2px';
@@ -708,10 +707,9 @@ const SampleEntryPage: React.FC = () => {
   );
 
   return (
-    <PageEditProvider>
-      <PageEditToggle />
+    <>
       {pageContent}
-    </PageEditProvider>
+    </>
   );
 };
 
