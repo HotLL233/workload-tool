@@ -1,5 +1,5 @@
 use crate::db::DbPool;
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::models::audit::AuditLogResponse;
 
 /// 独立写入审计日志（不依赖连接池，由调用方提供数据库路径）
@@ -56,13 +56,14 @@ pub fn log_on_conn_with_module(conn: &rusqlite::Connection, action: &str, table:
 /// - None → 全部
 pub fn list(pool: &DbPool, page: i64, page_size: i64, module: Option<&str>) -> Result<(Vec<AuditLogResponse>, i64)> {
     let conn = pool.get()?;
-    let (count_sql, where_clause): (&str, String) = match module {
-        Some("work") => ("SELECT COUNT(*) FROM audit_log WHERE module IN ('work','shared')", "WHERE module IN ('work','shared')".to_string()),
-        Some("rd") => ("SELECT COUNT(*) FROM audit_log WHERE module IN ('rd','shared')", "WHERE module IN ('rd','shared')".to_string()),
-        Some(m) => ("SELECT COUNT(*) FROM audit_log WHERE module=?1", format!("WHERE module='{}'", m.replace('\'', "''"))),
-        None => ("SELECT COUNT(*) FROM audit_log", String::new()),
+    let (count_sql, where_clause): (&str, &str) = match module {
+        Some("work") => ("SELECT COUNT(*) FROM audit_log WHERE module IN ('work','shared')", "WHERE module IN ('work','shared')"),
+        Some("rd") => ("SELECT COUNT(*) FROM audit_log WHERE module IN ('rd','shared')", "WHERE module IN ('rd','shared')"),
+        Some("shared") => ("SELECT COUNT(*) FROM audit_log WHERE module='shared'", "WHERE module='shared'"),
+        Some(_) => return Err(AppError::Validation("无效的 module 参数（仅支持 work/rd/shared）".into())),
+        None => ("SELECT COUNT(*) FROM audit_log", ""),
     };
-    let count: i64 = if let Some(m) = module { if m == "work" || m == "rd" { conn.query_row(count_sql, [], |r| r.get(0))? } else { conn.query_row(count_sql, [m], |r| r.get(0))? } } else { conn.query_row(count_sql, [], |r| r.get(0))? };
+    let count: i64 = conn.query_row(count_sql, [], |r| r.get(0))?;
     let offset = (page - 1) * page_size;
     let base = "SELECT id, action, table_name, record_id, user_name, detail, module, created_at FROM audit_log";
     let sql = if where_clause.is_empty() {

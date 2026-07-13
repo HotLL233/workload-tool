@@ -487,10 +487,10 @@ const SampleEntryPage: React.FC = () => {
         
         {rows.length > 0 && (
         <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', mb: 2, overflowX: 'auto' }}>
-          <Table size="small" sx={{ minWidth: 1280 }} stickyHeader>
+          <Table size="small" sx={{ width: '100%', minWidth: 0, tableLayout: 'fixed' }} stickyHeader>
             <TableHead>
               <TableRow sx={{ bgcolor: 'rgba(230,81,0,0.06)' }}>
-                <TableCell padding="checkbox" sx={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                <TableCell padding="checkbox" sx={{ width: tableConfig.checkbox_column_width, fontWeight: 700, fontSize: '0.8rem' }}>
                   <Checkbox size="small" checked={rows.length > 0 && rows.every(r => r.checked)}
                     indeterminate={rows.some(r => r.checked) && !rows.every(r => r.checked)}
                     onChange={() => {
@@ -500,7 +500,7 @@ const SampleEntryPage: React.FC = () => {
                 </TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: tableConfig.seq_column_width, textAlign: 'center' }}>序号</TableCell>
                 {visibleLayoutFields.map(field => (
-                  <TableCell key={field.key} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: `${(field.width || 100) / 10}%`, minWidth: field.width || 80 }}>
+                  <TableCell key={field.key} sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: `${(field.width || 100) / 10}%` }}>
                     {field.label}
                   </TableCell>
                 ))}

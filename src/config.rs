@@ -22,7 +22,30 @@ fn default_max_backup_count() -> u64 { 10 }
 impl Default for AppConfig { fn default() -> Self { Self { server_port: default_port(), db_dir: default_db_dir(), log_level: default_log_level(), log_file: None, admin_user: default_admin_user(), admin_pass: default_admin_pass(), backup_enabled: default_backup_enabled(), backup_interval_hours: default_backup_interval(), max_backup_count: default_max_backup_count() } } }
 
 impl AppConfig {
-    pub fn load() -> Self { let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf())).unwrap_or_default(); let cp = exe_dir.join("config.toml"); if cp.exists() { let c = std::fs::read_to_string(&cp).unwrap_or_default(); toml::from_str(&c).unwrap_or_default() } else { Self::default() } }
+    pub fn load() -> Self {
+        let mut config = Self::default();
+        // 优先从环境变量读取 ADMIN_PASSWORD（Docker/Linux）
+        if let Ok(p) = std::env::var("ADMIN_PASSWORD") {
+            config.admin_pass = p;
+        }
+        let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf())).unwrap_or_default();
+        let cp = exe_dir.join("config.toml");
+        if cp.exists() {
+            let c = std::fs::read_to_string(&cp).unwrap_or_default();
+            if let Ok(toml_cfg) = toml::from_str::<Self>(&c) {
+                config.admin_pass = toml_cfg.admin_pass;
+                config.server_port = toml_cfg.server_port;
+                config.db_dir = toml_cfg.db_dir;
+                config.log_level = toml_cfg.log_level;
+                config.log_file = toml_cfg.log_file;
+                config.admin_user = toml_cfg.admin_user;
+                config.backup_enabled = toml_cfg.backup_enabled;
+                config.backup_interval_hours = toml_cfg.backup_interval_hours;
+                config.max_backup_count = toml_cfg.max_backup_count;
+            }
+        }
+        config
+    }
     pub fn save(&self) { let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|p| p.to_path_buf())).unwrap_or_default(); let cp = exe_dir.join("config.toml"); if let Ok(s) = toml::to_string_pretty(self) { let _ = std::fs::write(&cp, s); } }
 
     /// 数据目录：支持 WORKLOAD_DATA_DIR 环境变量（Docker/Linux），fallback 到 exe 同级目录下的 db_dir

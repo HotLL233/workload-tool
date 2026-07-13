@@ -7,8 +7,10 @@ use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation}
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// JWT secret key — 生产环境应从环境变量读取
-const JWT_SECRET: &str = "workload-tool-jwt-secret-v0.4.29";
+/// JWT secret key — 生产环境应设置环境变量 JWT_SECRET（否则使用内置默认密钥）
+fn jwt_secret() -> String {
+    std::env::var("JWT_SECRET").unwrap_or_else(|_| "workload-tool-jwt-secret-v0.4.29".to_string())
+}
 
 /// JWT Claims
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -42,19 +44,21 @@ pub fn generate_token(pool: &DbPool, user: &User) -> Result<String> {
         exp: (now + Duration::hours(24)).timestamp() as usize,
         iat: now.timestamp() as usize,
     };
+    let secret = jwt_secret();
     encode(
         &Header::default(),
         &claims,
-        &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
+        &EncodingKey::from_secret(secret.as_bytes()),
     )
     .map_err(|e| AppError::Internal(format!("Token 生成失败: {}", e)))
 }
 
 /// 验证 JWT token 并返回 Claims
 pub fn verify_token(token: &str) -> Result<Claims> {
+    let secret = jwt_secret();
     decode::<Claims>(
         token,
-        &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
+        &DecodingKey::from_secret(secret.as_bytes()),
         &Validation::default(),
     )
     .map(|data| data.claims)
