@@ -9,8 +9,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import SaveIcon from '@mui/icons-material/Save';
 import { useNavigate } from 'react-router-dom';
-import type { WorkRecord, RdRecordColumn, Project, Method } from '../types';
-import { getRdRecords, sampleRdRecord, getGroups, getRdRecordColumns, getProjects, getMethods, updateRdRecord } from '../api/client';
+import type { WorkRecord, RdRecordColumn, Project, Method, Division } from '../types';
+import { getRdRecords, sampleRdRecord, getGroups, getRdRecordColumns, getProjects, getMethods, updateRdRecord, getSetting, getDivisions } from '../api/client';
 import { useUser } from '../UserContext';
 
 
@@ -30,11 +30,13 @@ const extractInstrumentFromMethodName = (methodName: string): string | null => {
 };
 
 // 字段名 → 显示值的映射
+// 字段名 → 显示值的映射（v0.4.55: divs 参数解析 division_id 名称）
+let _divsCache: Division[] = [];
 const getFieldValue = (rec: WorkRecord, fieldKey: string): string => {
   switch (fieldKey) {
     case 'seq_no': return '';
     case 'user_name': return rec.user_name || '-';
-    case 'division_id': return rec.division_id?.toString() || '-';
+    case 'division_id': return (rec.division_id ? (_divsCache.find(d => d.id === rec.division_id)?.name || String(rec.division_id)) : '-');
     case 'lab_name': return rec.group_name || '-';
     case 'project_name': return rec.project_name || '-';
     case 'detection_type': return rec.method_type || '-';
@@ -58,6 +60,8 @@ const RdRecordsPage: React.FC = () => {
   const [snackMsg, setSnackMsg] = useState('');
   const [snackErr, setSnackErr] = useState(false);
   const [columns, setColumns] = useState<RdRecordColumn[]>([]);
+  const [divs, setDivs] = useState<Division[]>([]); // v0.4.55: 部门缓存
+  const [formFields, setFormFields] = useState<{ key: string; width: number }[]>([]); // v0.4.55: form_sample_entry 列宽
   const pageSize = 20;
 
   // v0.4.34: 行内编辑状态
@@ -100,7 +104,22 @@ const RdRecordsPage: React.FC = () => {
     } catch {}
   }, []);
 
-  useEffect(() => { loadColumns(); loadRecords(0); loadGroups(); loadCascadeData(); }, []);
+  useEffect(() => { loadColumns(); loadRecords(0); loadGroups(); loadCascadeData(); loadDivs(); }, []);
+  // v0.4.55: 加载表单配置（列宽）+ 缓存
+  const loadDivs = useCallback(async () => {
+    try { const r = await getDivisions(); if (r.code === 0 && r.data) { setDivs(r.data); _divsCache = r.data; } } catch {}
+  }, []);
+  useEffect(() => {
+    getSetting('form_sample_entry').then(r => {
+      if (r.code === 0 && r.data) {
+        try {
+          const parsed = JSON.parse(r.data.value);
+          const flds = Array.isArray(parsed) ? parsed : (parsed.fields || []);
+          setFormFields((flds as any[]).map((f: any) => ({ key: f.key || '', width: f.width || 100 })));
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
 
   const handlePageChange = (_e: unknown, newPage: number) => {
     setPage(newPage);
@@ -203,19 +222,23 @@ const RdRecordsPage: React.FC = () => {
     ) : (
     
       <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', '& .MuiPaper-root': { borderRadius: R }, overflowX: 'auto' }}>
-        <Table size="small" sx={{ minWidth: columns.length * 100 + 60 }}>
+        <Table size="small" sx={{ width: '100%', minWidth: 0, tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow sx={{ bgcolor: 'rgba(230,81,0,0.06)' }}>
-              {columns.map(col => (
+              {columns.map(col => {
+                // v0.4.55: 优先使用 form_sample_entry 中的字段宽度
+                const fw = formFields.find(f => f.key === col.name)?.width;
+                const colWidth = fw || col.width || 80;
+                return (
                 <TableCell key={col.name} sx={{
                   fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap',
-                  width: isSeqNoCol(col.name) ? 40 : undefined,
-                  minWidth: col.width || 80,
+                  width: isSeqNoCol(col.name) ? 40 : colWidth,
                   textAlign: isSeqNoCol(col.name) ? 'center' : 'left',
                 }}>
                   {col.label}
                 </TableCell>
-              ))}
+                );
+              })}
               <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap', width: 50 }}>操作</TableCell>
             </TableRow>
           </TableHead>

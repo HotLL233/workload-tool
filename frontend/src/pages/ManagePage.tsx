@@ -758,7 +758,7 @@ const ManagePage: React.FC = () => {
           setDivEditOpen(true);
         }} size="small" sx={{ borderRadius: R, background: 'linear-gradient(135deg,#1976d2,#1565c0)', boxShadow: '0 4px 14px rgba(25,118,210,0.3)' }}>新建部门</Button>
       </Box>
-      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>按检测技术维度（液相/气相/理化/ICP/热分析/质谱/红外/其他）归拢实验室；删除部门采用软删除，关联实验室的归属将自动置空，可在管理页恢复。</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>按组织架构（部门/事业部）归拢实验室；删除部门采用软删除，关联实验室的归属将自动置空，可在管理页恢复。</Typography>
       {divs.length === 0 ? <Typography color="text.secondary" textAlign="center" sx={{ py: 4 }}>暂无部门</Typography>
         : <TableContainer component={Paper} sx={{ borderRadius: R, border: '1px solid rgba(0,0,0,0.06)' }}>
           <Table size="small">

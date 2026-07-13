@@ -158,10 +158,26 @@ const SampleInfoEntry: React.FC = () => {
       if (r.code === 0 && r.data) {
         const cols = r.data;
         setColumns(cols);
-        setRows([emptyRow(cols, user)]);
+        // v0.4.55: 保留已有行数据，按新列 field_key 映射
+        setRows(prev => {
+          if (prev.length === 0 || (prev.length === 1 && !prev[0].user_name && !prev[0].project_name)) {
+            return [emptyRow(cols, user)];
+          }
+          return prev.map(r => {
+            const nr: any = { checked: r.checked || false, _extra: r._extra || {} };
+            cols.forEach(c => {
+              if (c.is_predefined) {
+                nr[c.field_key] = r[c.field_key] || '';
+              } else {
+                nr._extra[c.field_key] = r._extra?.[c.field_key] || '';
+              }
+            });
+            return nr;
+          });
+        });
       }
     }).catch(() => {});
-  }, [dt]); // v0.4.54: 切换检测类型时重新加载列配置
+  }, [dt]);
 
   // v0.4.49: 从 form_sample_info_entry 加载表单字段配置（ManageFormConfig 统一管理）
   const [formDefs, setFormDefs] = useState<FieldDef[]>([]);
@@ -347,7 +363,12 @@ const SampleInfoEntry: React.FC = () => {
     const val = getRowValue(rows[idx], col.field_key);
     switch (col.data_type) {
       case 'attachment':
-        return <Button size="small" disabled startIcon={<AttachFileIcon />} sx={{ fontSize: '0.7rem', borderRadius: R }}>保存后上传</Button>;
+        return (
+          <Button size="small" startIcon={<AttachFileIcon />} disabled
+            sx={{ fontSize: '0.7rem', borderRadius: R, color: '#999' }}>
+            保存后上传
+          </Button>
+        );
       case 'select':
         return (
           <FormControl fullWidth size="small">
