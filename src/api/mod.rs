@@ -71,7 +71,7 @@ pub fn api_router(pool: DbPool, config: Arc<AppConfig>) -> Router {
         .merge(export_handler::router(pool.clone()))
         .merge(import_handler::router(pool.clone()))
         .merge(audit_handler::router(pool.clone()))
-        .merge(auth_handler::router(config.clone()))
+        .merge(auth_handler::router(config.clone(), pool.clone()))
         .merge(backup_handler::router(config.clone()))
         .merge(export_preview_handler::router(pool.clone()))
         .merge(help_handler::router(pool.clone()))
