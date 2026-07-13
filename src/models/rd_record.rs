@@ -19,6 +19,8 @@ pub struct RdRecordResponse {
     pub status: String,
     pub sampler: Option<String>,
     pub sampled_at: Option<String>,
+    pub division_id: Option<i64>,
+    pub group_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]

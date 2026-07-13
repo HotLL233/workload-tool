@@ -25,6 +25,7 @@ interface RowState {
   project_id: number | null;
   project_name: string;
   division_id: number | null;
+  group_id: number | null;  // v0.4.53: 实验室，每行可选
   method_id: number | null;
   method_name: string;
   method_type: string;  // v0.4.28: 改为可编辑，级联过滤
@@ -35,13 +36,14 @@ interface RowState {
 
 let rowIdCounter = 1;
 
-const createEmptyRow = (defaultUser: string, defaultDivisionId: number | null | undefined): RowState => ({
+const createEmptyRow = (defaultUser: string, defaultDivisionId: number | null | undefined, defaultGroupId?: number | null): RowState => ({
   id: rowIdCounter++,
   checked: false,
   user_name: defaultUser,
   project_id: null,
   project_name: '',
   division_id: defaultDivisionId ?? null,
+  group_id: defaultGroupId ?? null,
   method_id: null,
   method_name: '',
   method_type: '',
@@ -114,7 +116,7 @@ const SampleEntryPage: React.FC = () => {
   useEffect(() => {
     const defaultUser = user?.username || '';
     const defaultDiv = user?.division_id ?? labDivisionId ?? null;
-    setRows([createEmptyRow(defaultUser, defaultDiv)]);
+    setRows([createEmptyRow(defaultUser, defaultDiv, gid)]);
   }, [user, labDivisionId]);
 
   const getTodayStr = useCallback(() => {
@@ -231,7 +233,7 @@ const SampleEntryPage: React.FC = () => {
   const addRow = () => {
     const defaultUser = user?.username || '';
     const defaultDiv = user?.division_id ?? labDivisionId ?? null;
-    setRows(prev => [...prev, createEmptyRow(defaultUser, defaultDiv)]);
+    setRows(prev => [...prev, createEmptyRow(defaultUser, defaultDiv, gid)]);
   };
 
   const deleteChecked = () => {
@@ -241,7 +243,7 @@ const SampleEntryPage: React.FC = () => {
   const reset = () => {
     const defaultUser = user?.username || '';
     const defaultDiv = user?.division_id ?? labDivisionId ?? null;
-    setRows([createEmptyRow(defaultUser, defaultDiv)]);
+    setRows([createEmptyRow(defaultUser, defaultDiv, gid)]);
   };
 
   const toggleCheck = (rowId: number) => {
@@ -270,7 +272,7 @@ const SampleEntryPage: React.FC = () => {
           user_name: row.user_name,
           quantity: row.quantity,
           recorded_at: dateTime,
-          group_id: gid,
+          group_id: row.group_id ?? gid,
           division_id: row.division_id ?? labDivisionId ?? null,
           batch_no: row.batch_no || undefined,
           notes: row.notes || undefined,
@@ -348,9 +350,10 @@ const SampleEntryPage: React.FC = () => {
           </TableCell>
         );
       case 'lab_name':
+        // v0.4.53: 使用记录的实验室名称（group_name），回退到页面级 labName
         return (
-          <TableCell key={field.key} sx={{ fontSize: '0.8rem', maxWidth: field.width || 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {labName || '-'}
+          <TableCell key={field.key} sx={{ fontSize: '0.8rem', maxWidth: field.width || 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {(rec as any).group_name || rec.group_name || labName || '-'}
           </TableCell>
         );
       case 'project_name':
@@ -518,12 +521,16 @@ const SampleEntryPage: React.FC = () => {
                   <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center', width: tableConfig.seq_column_width }}>{idx + 1}</TableCell>
                   {visibleLayoutFields.map(field => {
                     if (field.key === 'lab_name') {
-                      // 实验室列：整页共用一个 lab（从 URL group_id 读取），不可编辑
+                      // v0.4.53: 改为可选下拉（自动填入当前实验室）
                       return (
                         <TableCell key={field.key} sx={{ p: 0.5 }}>
-                          <TextField size="small" value={labName} disabled
-                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem', bgcolor: '#f5f5f5' } }}
-                            inputProps={{ style: { padding: '2px 6px' } }} />
+                          <TextField size="small" select value={row.group_id ?? ''}
+                            onChange={e => updateRow(row.id, { group_id: e.target.value ? Number(e.target.value) : null })}
+                            sx={{ width: '100%', '& .MuiOutlinedInput-root': { borderRadius: R, fontSize: '0.8rem' } }}
+                            SelectProps={{ native: true }} inputProps={{ style: { padding: '2px 6px' } }}>
+                            <option value="">-</option>
+                            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                          </TextField>
                         </TableCell>
                       );
                     }

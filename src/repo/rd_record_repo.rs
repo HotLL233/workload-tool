@@ -38,7 +38,8 @@ pub fn list(
                 (SELECT group_concat(DISTINCT mt.name)
                  FROM method_type_links mtl
                  JOIN method_types mt ON mtl.method_type_id = mt.id
-                 WHERE mtl.method_id = wr.method_id) AS method_type
+                 WHERE mtl.method_id = wr.method_id) AS method_type,
+         wr.division_id, wr.group_id
          FROM rd_work_records wr
          JOIN projects p ON wr.project_id = p.id
          LEFT JOIN methods m ON wr.method_id = m.id
@@ -58,6 +59,7 @@ pub fn list(
             created_at: row.get(10)?, deleted_at: row.get(11)?,
             status: row.get(12)?, sampler: row.get(13)?,
             sampled_at: row.get(14)?, method_name: row.get(15)?, method_type: row.get(16)?,
+            division_id: row.get(17)?, group_id: row.get(18)?,
         }),
     )?;
     let items: Vec<RdRecordResponse> = rows.collect::<std::result::Result<Vec<_>, _>>()?;
@@ -89,7 +91,8 @@ fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<RdRecordRes
                 (SELECT group_concat(DISTINCT mt.name)
                  FROM method_type_links mtl
                  JOIN method_types mt ON mtl.method_type_id = mt.id
-                 WHERE mtl.method_id = wr.method_id) AS method_type
+                 WHERE mtl.method_id = wr.method_id) AS method_type,
+         wr.division_id, wr.group_id
          FROM rd_work_records wr
          JOIN projects p ON wr.project_id = p.id
          LEFT JOIN methods m ON wr.method_id = m.id
@@ -102,6 +105,7 @@ fn get_by_id_on_conn(conn: &rusqlite::Connection, id: i64) -> Result<RdRecordRes
             created_at: row.get(10)?, deleted_at: row.get(11)?,
             status: row.get(12)?, sampler: row.get(13)?,
             sampled_at: row.get(14)?, method_name: row.get(15)?, method_type: row.get(16)?,
+            division_id: row.get(17)?, group_id: row.get(18)?,
         }),
     ).map_err(|e| match e {
         rusqlite::Error::QueryReturnedNoRows => crate::error::AppError::NotFound("记录不存在".into()),
