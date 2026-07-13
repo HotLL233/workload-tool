@@ -11,10 +11,9 @@ import SendIcon from '@mui/icons-material/Send';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Project, Method, MethodType, WorkRecord, ProjectGroup, Division } from '../types';
 import type { FieldDef } from '../types/layout';
-import { getProjects, getMethods, createRdRecord, getMethodTypes, getGroups, getRdRecords, sampleRdRecord, getDivisions } from '../api/client';
+import { getProjects, getMethods, createRdRecord, getMethodTypes, getGroups, getRdRecords, sampleRdRecord, getDivisions, getSetting } from '../api/client';
 import { useUser } from '../UserContext';
-import EditablePageShell from '../components/EditablePageShell';
-import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
+
 
 const R = '2px';
 
@@ -154,6 +153,17 @@ const SampleEntryPage: React.FC = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { loadTodayRecords(); }, [loadTodayRecords]);
+  // v0.4.44: 直接从 system_settings 加载字段布局（替代 EditablePageShell 回调）
+  useEffect(() => {
+    getSetting('layout_sample_entry_fields').then(r => {
+      if (r.code === 0 && r.data) {
+        try {
+          const parsed = JSON.parse(r.data.value) as FieldDef[];
+          if (Array.isArray(parsed) && parsed.length > 0) setLayoutFields(parsed);
+        } catch {}
+      }
+    }).catch(() => {});
+  }, []);
 
   // 该实验室的研发项目所关联的方法
   const linkedMethods = useMemo(() => {
@@ -401,15 +411,14 @@ const SampleEntryPage: React.FC = () => {
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
 
   const pageContent = (
-    <PageEditProvider>
+    
     <Box sx={{ p: 2 }}>
-      <PageEditToggle />
 
       {/* === 卡片式白色容器，绿色边框 — 与样品信息登记一致 === */}
       <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: R, border: '2px solid #2e7d32', background: 'linear-gradient(145deg,#ffffff,#f1f8e9)' }}>
 
         {/* 顶部标题栏 */}
-        <PageSectionEditor pageKey="sample_entry" sectionKey="page-title" defaultLabel="研发送样录入">
+        
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
           <Box>
             <Typography variant="h6" fontWeight={700} sx={{ cursor: 'pointer' }} onClick={() => navigate('/sample')}>← 研发送样录入</Typography>
@@ -420,10 +429,10 @@ const SampleEntryPage: React.FC = () => {
           </Box>
           <Chip label={headerStatus} size="small" sx={{ bgcolor: headerStatus === '已取样' ? '#c8e6c9' : '#fff3e0', color: headerStatus === '已取样' ? '#2e7d32' : '#e65100', fontWeight: 500 }} />
         </Box>
-        </PageSectionEditor>
+        
 
         {/* 公共送样时间（整单公共） */}
-        <PageSectionEditor pageKey="sample_entry" sectionKey="sample-time" defaultLabel="送样时间（整单公共）">
+        
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" sx={{ mb: 0.5 }}>送样时间（整单公共）</Typography>
           <TextField
@@ -435,10 +444,10 @@ const SampleEntryPage: React.FC = () => {
             sx={{ width: isMobile ? '100%' : 240, '& .MuiOutlinedInput-root': { borderRadius: R } }}
           />
         </Box>
-        </PageSectionEditor>
+        
 
         {/* 操作按钮栏 */}
-        <PageSectionEditor pageKey="sample_entry" sectionKey="action-btns">
+        
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ borderRadius: R }}>
             添加行
@@ -451,10 +460,10 @@ const SampleEntryPage: React.FC = () => {
             重置
           </Button>
         </Box>
-        </PageSectionEditor>
+        
 
         {/* 多行表格 — 动态列 */}
-        <PageSectionEditor pageKey="sample_entry" sectionKey="entry-table">
+        
         {rows.length > 0 && (
         <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: R, boxShadow: 'none', mb: 2, overflowX: 'auto' }}>
           <Table size="small" sx={{ minWidth: 1280 }} stickyHeader>
@@ -605,10 +614,10 @@ const SampleEntryPage: React.FC = () => {
           </Table>
         </TableContainer>
         )}
-        </PageSectionEditor>
+        
 
         {/* 底栏：提交按钮 */}
-        <PageSectionEditor pageKey="sample_entry" sectionKey="submit-btn" defaultLabel="提交登记">
+        
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <Button variant="contained" size="small" startIcon={<SendIcon />} onClick={handleSubmit}
             sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}
@@ -616,11 +625,11 @@ const SampleEntryPage: React.FC = () => {
             提交登记（{rows.length} 行）
           </Button>
         </Box>
-        </PageSectionEditor>
+        
       </Paper>
 
       {/* 今日记录 — v0.4.36: 布局字段驱动 */}
-      <PageSectionEditor pageKey="sample_entry" sectionKey="today-records">
+      
       <Box sx={{ mt: 3 }}>
         <Typography variant="h6" fontWeight={600} sx={{ mb: 1.5 }}>
           今日记录
@@ -678,34 +687,19 @@ const SampleEntryPage: React.FC = () => {
           </TableContainer>
         )}
       </Box>
-      </PageSectionEditor>
+      
 
       <Snackbar open={!!snackMsg} autoHideDuration={3000} onClose={() => setSnackMsg('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity={snackErr ? 'error' : 'success'} sx={{ borderRadius: R }} onClose={() => setSnackMsg('')}>{snackMsg}</Alert>
       </Snackbar>
     </Box>
-    </PageEditProvider>
+    
   );
 
   return (
-    <EditablePageShell
-      pageKey="sample_entry_fields"
-      defaultFields={DEFAULT_LAYOUT_FIELDS}
-      onFieldsLoaded={setLayoutFields}
-      renderField={(field, _isEditMode) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
-          <Typography variant="body2" sx={{ fontWeight: 700, color: '#333', minWidth: 80, fontSize: '0.8rem' }}>
-            {field.label}
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#999', fontSize: '0.75rem' }}>
-            [{field.type}] {field.width}px
-            {field.required ? ' *必填' : ''}
-          </Typography>
-        </Box>
-      )}
-    >
+    <>
       {pageContent}
-    </EditablePageShell>
+    </>
   );
 };
 

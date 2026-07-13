@@ -14,10 +14,35 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import SettingsIcon from '@mui/icons-material/Settings';
 import SaveIcon from '@mui/icons-material/Save';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
+import StarIcon from '@mui/icons-material/Star';
 import type { PageLayout, SectionConfig } from './PageSectionEditor';
+import type { FieldDef } from '../types/layout';
 import { getSetting, updateSetting } from '../api/client';
 
 const R = '2px';
+
+// 哪些页面包含可编辑的字段布局（pageKey → settings key）
+const PAGE_FIELDS: Record<string, string> = {
+  'sample_entry': 'sample_entry_fields',
+};
+
+// 字段默认值（用于重置）
+const DEFAULT_FIELDS: Record<string, FieldDef[]> = {
+  'sample_entry_fields': [
+    { key: 'user_name', type: 'text', label: '送样人', width: 120, required: false, visible: true, sort_order: 1, placeholder: '' },
+    { key: 'division_id', type: 'select', label: '部门', width: 140, required: false, visible: true, sort_order: 2, options: '从用户分组读取' },
+    { key: 'lab_name', type: 'text', label: '实验室', width: 150, required: false, visible: true, sort_order: 3, placeholder: '' },
+    { key: 'project_name', type: 'text', label: '项目', width: 160, required: false, visible: true, sort_order: 4, placeholder: '' },
+    { key: 'detection_type', type: 'select', label: '检测类型', width: 120, required: false, visible: true, sort_order: 5, options: '从检测类型表读取' },
+    { key: 'method_name', type: 'text', label: '方法', width: 200, required: false, visible: true, sort_order: 6, placeholder: '' },
+    { key: 'quantity', type: 'number', label: '数量', width: 80, required: false, visible: true, sort_order: 7 },
+    { key: 'batch_no', type: 'text', label: '批号', width: 100, required: false, visible: true, sort_order: 8, placeholder: '' },
+    { key: 'notes', type: 'text', label: '注意事项', width: 150, required: false, visible: true, sort_order: 9, placeholder: '' },
+  ],
+};
 
 interface PageDef {
   key: string;
@@ -148,6 +173,9 @@ const PageLayoutAdmin: React.FC = () => {
   const [snackMsg, setSnackMsg] = useState('');
   const [snackErr, setSnackErr] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [fields, setFields] = useState<FieldDef[]>([]);
+  const [fieldDirty, setFieldDirty] = useState(false);
+  const fieldsKey = sel ? PAGE_FIELDS[sel] : undefined;
 
   const pageDef = PAGES.find(p => p.key === sel);
 
@@ -161,8 +189,18 @@ const PageLayoutAdmin: React.FC = () => {
         if (parsed?.sections) setLayout(parsed);
         else setLayout(null);
       } else setLayout(null);
-    } catch { setLayout(null); }
-    finally { setLoading(false); setDirty(false); }
+      // v0.4.44: 同时加载字段布局
+      const fk = PAGE_FIELDS[pageKey];
+      if (fk) {
+        const fr = await getSetting(fk).catch(() => ({} as any));
+        if (fr.code === 0 && fr.data) {
+          const fp = JSON.parse(fr.data.value) as FieldDef[];
+          if (Array.isArray(fp) && fp.length > 0) { setFields(fp); return; }
+        }
+        setFields(DEFAULT_FIELDS[fk] || []);
+      } else setFields([]);
+    } catch { setLayout(null); setFields([]); }
+    finally { setLoading(false); setDirty(false); setFieldDirty(false); }
   }, []);
 
   useEffect(() => { if (sel) loadLayout(sel); }, [sel, loadLayout]);
@@ -193,6 +231,50 @@ const PageLayoutAdmin: React.FC = () => {
       setSnackMsg('❌ 保存失败: ' + (e.message || ''));
       setSnackErr(true);
     } finally { setSaving(false); }
+  };
+
+  // 字段编辑
+  const updateField = (idx: number, patch: Partial<FieldDef>) => {
+    setFields(prev => prev.map((f, i) => i === idx ? { ...f, ...patch } : f));
+    setFieldDirty(true);
+  };
+  const removeField = (idx: number) => {
+    setFields(prev => prev.filter((_, i) => i !== idx).map((f, i) => ({ ...f, sort_order: i + 1 })));
+    setFieldDirty(true);
+  };
+  const addField = () => {
+    const newField: FieldDef = { key: `field_${Date.now()}`, type: 'text', label: '新字段', width: 120, required: false, visible: true, sort_order: fields.length + 1, placeholder: '' };
+    setFields(prev => [...prev, newField]);
+    setFieldDirty(true);
+  };
+  const moveField = (from: number, to: number) => {
+    if (from === to || to < 0 || to >= fields.length) return;
+    setFields(prev => {
+      const arr = [...prev];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return arr.map((f, i) => ({ ...f, sort_order: i + 1 }));
+    });
+    setFieldDirty(true);
+  };
+  const saveFields = async () => {
+    if (!fieldsKey || fields.length === 0) return;
+    setSaving(true);
+    try {
+      const r = await updateSetting(fieldsKey, fields);
+      if (r.code !== 0) throw new Error(r.message || '保存失败');
+      setSnackMsg('✅ 字段布局已保存');
+      setSnackErr(false);
+      setFieldDirty(false);
+    } catch (e: any) {
+      setSnackMsg('❌ 保存字段失败: ' + (e.message || ''));
+      setSnackErr(true);
+    } finally { setSaving(false); }
+  };
+  const resetFields = () => {
+    if (!fieldsKey) return;
+    const def = DEFAULT_FIELDS[fieldsKey];
+    if (def) { setFields([...def]); setFieldDirty(true); }
   };
 
   const resetDefault = () => {
@@ -367,6 +449,67 @@ const PageLayoutAdmin: React.FC = () => {
             </Box>
             <Divider sx={{ mb: 2 }} />
             {pageDef?.sections.map(renderSectionEditor)}
+
+            {/* 字段编辑（仅对有字段的页面显示） */}
+            {fieldsKey && fields.length > 0 && (
+              <>
+                <Divider sx={{ my: 2, borderStyle: 'dashed' }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
+                    录入表格字段布局
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={resetFields} sx={{ borderRadius: R }}>
+                      重置字段
+                    </Button>
+                    <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={saveFields}
+                      disabled={!fieldDirty || saving} sx={{ borderRadius: R, bgcolor: fieldDirty ? '#1976d2' : '#ccc' }}>
+                      保存字段
+                    </Button>
+                  </Box>
+                </Box>
+                <Paper elevation={0} sx={{ border: '1px solid #e0e0e0', borderRadius: R, overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', bgcolor: '#f5f5f5', px: 1.5, py: 0.5, borderBottom: '1px solid #e0e0e0', fontSize: '0.75rem', fontWeight: 700, color: '#666' }}>
+                    <Box sx={{ width: 32 }}></Box>
+                    <Box sx={{ flex: 1, minWidth: 80 }}>字段标签</Box>
+                    <Box sx={{ width: 80, textAlign: 'center' }}>列宽(px)</Box>
+                    <Box sx={{ width: 60, textAlign: 'center' }}>可见</Box>
+                    <Box sx={{ width: 40 }}></Box>
+                  </Box>
+                  {fields.map((field, idx) => (
+                    <Box key={field.key || idx} sx={{ display: 'flex', alignItems: 'center', px: 1.5, py: 0.5, borderBottom: '1px solid #f0f0f0', '&:hover': { bgcolor: '#fafafa' } }}>
+                      <Box sx={{ width: 32, display: 'flex', gap: 0.5 }}>
+                        <IconButton size="small" sx={{ p: 0, cursor: 'grab' }} disabled={idx === 0}
+                          onClick={() => moveField(idx, idx - 1)}>
+                          <Typography variant="caption">▲</Typography>
+                        </IconButton>
+                        <IconButton size="small" sx={{ p: 0, cursor: 'grab' }} disabled={idx === fields.length - 1}
+                          onClick={() => moveField(idx, idx + 1)}>
+                          <Typography variant="caption">▼</Typography>
+                        </IconButton>
+                      </Box>
+                      <TextField size="small" value={field.label}
+                        onChange={e => updateField(idx, { label: e.target.value })}
+                        sx={{ flex: 1, minWidth: 80, '& .MuiOutlinedInput-root': { borderRadius: R }, '& input': { fontSize: '0.8rem', py: 0.5 } }} />
+                      <TextField size="small" type="number" value={field.width}
+                        onChange={e => updateField(idx, { width: Math.max(40, Number(e.target.value) || 80) })}
+                        sx={{ width: 72, mx: 0.5, '& .MuiOutlinedInput-root': { borderRadius: R }, '& input': { fontSize: '0.8rem', py: 0.5, textAlign: 'center' } }}
+                        inputProps={{ min: 40, max: 500 }} />
+                      <Switch size="small" checked={field.visible !== false}
+                        onChange={(_, v) => updateField(idx, { visible: v })}
+                        sx={{ width: 48 }} />
+                      <IconButton size="small" onClick={() => removeField(idx)} sx={{ width: 32, color: '#ccc', '&:hover': { color: 'error.main' } }}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Paper>
+                <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={addField}
+                  sx={{ mt: 1, borderRadius: R, borderStyle: 'dashed' }}>
+                  添加字段
+                </Button>
+              </>
+            )}
           </>
         )}
       </Paper>

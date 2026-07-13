@@ -22,7 +22,7 @@ import {
 } from '../api/client';
 import type { SampleInfoRecord, SampleInfoType, Division, SampleInfoColumn, SampleInfoAttachment } from '../types';
 import { useUser } from '../UserContext';
-import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
+
 
 const R = '2px';
 const PAGE_SIZE = 20;
@@ -385,33 +385,32 @@ const SampleInfoEntry: React.FC = () => {
   };
 
   return (
-    <PageEditProvider>
+    
     <Box sx={{ maxWidth: 1100, mx: 'auto', mt: { xs: 1, md: 3 }, px: { xs: 1, md: 2 } }}>
-      <PageEditToggle />
       {/* 顶部 */}
-      <PageSectionEditor pageKey="sample_info_entry" sectionKey="page-title" defaultLabel="样品信息登记">
+      
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
         <IconButton onClick={() => n('/sample-info')} size="small"><ArrowBackIcon /></IconButton>
         <Typography variant="h5" fontWeight={700} color="#2e7d32">样品信息登记</Typography>
       </Box>
-      </PageSectionEditor>
+      
 
       {/* === 部分 A：登记表单 === */}
-      <PageSectionEditor pageKey="sample_info_entry" sectionKey="form-fields">
+      
       <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: R, border: '2px solid #2e7d32', background: 'linear-gradient(145deg,#ffffff,#f1f8e9)' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Box>
             <Typography variant="h6" fontWeight={700} color="#2e7d32">样品信息登记</Typography>
             <Typography variant="body2" color="text.secondary">
-              <PageSectionEditor pageKey="sample_info_entry" sectionKey="detection-type-chip">
+              
                 <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
                   <Chip label={dt || '全部'} size="small" color="primary" variant="outlined" />
                 </Box>
-              </PageSectionEditor>
+              
               ·
-              <PageSectionEditor pageKey="sample_info_entry" sectionKey="seq-no-chip" defaultLabel="序号: 自动生成">
+              
                 <Box component="span" sx={{ color: '#999' }}>序号: 自动生成</Box>
-              </PageSectionEditor>
+              
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -420,7 +419,7 @@ const SampleInfoEntry: React.FC = () => {
         </Box>
 
         {/* 公共时间 */}
-        <PageSectionEditor pageKey="sample_info_entry" sectionKey="sample-time" defaultLabel="送样时间（整单公共）">
+        
         <Box sx={{ mb: 2 }}>
           <TextField
             label="送样时间（整单公共）"
@@ -433,7 +432,7 @@ const SampleInfoEntry: React.FC = () => {
             sx={{ maxWidth: 280 }}
           />
         </Box>
-        </PageSectionEditor>
+        
 
         {/* 动态多行表格 */}
         <TableContainer component={Paper} sx={{ mb: 2, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)', overflowX: 'auto' }}>
@@ -482,7 +481,7 @@ const SampleInfoEntry: React.FC = () => {
         </TableContainer>
 
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <PageSectionEditor pageKey="sample_info_entry" sectionKey="action-btns">
+          
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ borderRadius: R }}>
               添加行
@@ -494,18 +493,18 @@ const SampleInfoEntry: React.FC = () => {
               重置
             </Button>
           </Box>
-          </PageSectionEditor>
-          <PageSectionEditor pageKey="sample_info_entry" sectionKey="submit-btn" defaultLabel="提交">
+          
+          
           <Button variant="contained" onClick={doSubmit} sx={{ borderRadius: R, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}>
             提交登记（{rows.length} 行）
           </Button>
-          </PageSectionEditor>
+          
         </Box>
       </Paper>
-      </PageSectionEditor>
+      
 
       {/* === 部分 B：记录列表 === */}
-      <PageSectionEditor pageKey="sample_info_entry" sectionKey="records-table">
+      
       <Paper elevation={0} sx={{ p: { xs: 1, md: 2 }, borderRadius: R, border: '1px solid #e0e0e0' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
           <Typography variant="h6" fontWeight={700}>登记记录</Typography>
@@ -677,13 +676,13 @@ const SampleInfoEntry: React.FC = () => {
           </>
         )}
       </Paper>
-      </PageSectionEditor>
+      
 
       <Snackbar open={snack.open} autoHideDuration={3000} onClose={() => setSnack(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
         <Alert severity={snack.sev} sx={{ width: '100%' }} onClose={() => setSnack(s => ({ ...s, open: false }))}>{snack.msg}</Alert>
       </Snackbar>
     </Box>
-    </PageEditProvider>
+    
   );
 };
 export default SampleInfoEntry;

@@ -15,7 +15,7 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import BuildIcon from '@mui/icons-material/Build';
 import ScienceIcon from '@mui/icons-material/Science';
-import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
+
 import PageLayoutAdmin from '../components/PageLayoutAdmin';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -572,21 +572,20 @@ const ManagePage: React.FC = () => {
   if (ld) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>;
 
   return (
-    <PageEditProvider>
+    
     <Box>
-      <PageEditToggle />
 
       {/* 标题 */}
-      <PageSectionEditor pageKey="manage" sectionKey="page-title" defaultLabel="系统管理">
+      
       <Typography variant="h5" fontWeight={700} sx={{ mb: 3, px: 1, background: 'linear-gradient(135deg,#f4511e,#e53935)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>系统管理</Typography>
-      </PageSectionEditor>
+      
 
       {msg && <Alert severity={err ? 'error' : 'success'} sx={{ mb: 2, borderRadius: R }} onClose={() => setMsg('')}>{msg}</Alert>}
 
       {/* 管理卡片网格 — 每张卡片独立可编辑 */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr 1fr', sm: '1fr 1fr 1fr', md: '1fr 1fr 1fr' }, gap: 1.5, mb: 3 }}>
       {tc.filter(c => user?.is_admin || !c.perm || hasPermission(user?.permissions || [], c.perm)).map(c => (
-        <PageSectionEditor key={c.key} pageKey="manage" sectionKey={`card-${c.key}`} defaultLabel={c.label}>
+        
         <Paper elevation={0}
           onClick={() => c.key === 'roles' ? navigate('/admin/roles') : setTb(c.key)}
           sx={{ p: isMobile ? 1.5 : 2.5, borderRadius: R, cursor: 'pointer', border: '2px solid', borderColor: tb === c.key ? '#f4511e' : 'rgba(0,0,0,0.06)', transition: 'all 0.2s', '&:hover': { borderColor: '#f4511e', boxShadow: '0 4px 24px rgba(244,81,30,0.12)' } }}>
@@ -596,12 +595,12 @@ const ManagePage: React.FC = () => {
           </Box>
           {!isMobile && <Typography variant="caption" color="text.secondary">{c.desc}</Typography>}
         </Paper>
-        </PageSectionEditor>
+        
       ))}
     </Box>
 
     {/* ── Tab 内容面板 ── */}
-    <PageSectionEditor pageKey="manage" sectionKey="tab-content">
+    
     {tb === 'projects' && <Box>
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => {
@@ -2449,7 +2448,7 @@ const ManagePage: React.FC = () => {
         </Button>
       </DialogActions>
     </Dialog>
-    </PageSectionEditor>
+    
 
     <ConfirmDialog open={co} title="确认操作" message="确定要执行此操作吗？" confirmText="确定" cancelText="取消" onConfirm={ca} onCancel={() => setCo(false)} />
 
@@ -2510,7 +2509,7 @@ const ManagePage: React.FC = () => {
     </Dialog>
     {tb === 'layouts' && <PageLayoutAdmin />}
   </Box>
-  </PageEditProvider>
+  
 );
 };
 

@@ -100,7 +100,7 @@ import type {
   Sheet10Row,
   Sheet11Row,
 } from "../types";
-import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
+
 
 dayjs.extend(isoWeek);
 
@@ -1911,10 +1911,9 @@ const StatsPage: React.FC = () => {
   };
 
   return (
-    <PageEditProvider>
+    
     <Box>
-      <PageEditToggle />
-      <PageSectionEditor pageKey="stats" sectionKey="page-title" defaultLabel="分析检测统计">
+      
       <Typography
         variant="h5"
         fontWeight={700}
@@ -1929,8 +1928,8 @@ const StatsPage: React.FC = () => {
       >
         分析检测统计
       </Typography>
-      </PageSectionEditor>
-      <PageSectionEditor pageKey="stats" sectionKey="stat-cards">
+      
+      
       {sm && (
         <StatsCards
           summary={sm}
@@ -1944,8 +1943,8 @@ const StatsPage: React.FC = () => {
           }}
         />
       )}
-      </PageSectionEditor>
-      <PageSectionEditor pageKey="stats" sectionKey="charts">
+      
+      
       {/* 筛选区 — 移动端折叠为 Accordion */}
       {m ? (
         <Accordion
@@ -2099,9 +2098,9 @@ const StatsPage: React.FC = () => {
         onConfirm={hsr}
         onCancel={() => setSdr(null)}
       />
-    </PageSectionEditor>
+    
     </Box>
-    </PageEditProvider>
+    
   );
 };
 export default StatsPage;

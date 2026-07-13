@@ -6,7 +6,7 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useUser } from '../UserContext';
 import type { HomeCard } from '../types';
-import { PageEditProvider, PageEditToggle, PageSectionEditor } from '../components/PageSectionEditor';
+
 
 const R = '2px';
 
@@ -87,19 +87,18 @@ const HomePage: React.FC = () => {
   const visibleCards = cards.filter((c) => hasPermission(c.perm));
 
   return (
-    <PageEditProvider>
+    
     <Box sx={{ maxWidth: 900, mx: 'auto', mt: { xs: 2, md: 6 } }}>
       {/* 编辑模式切换 */}
-      <PageEditToggle />
 
       {/* Header */}
-      <PageSectionEditor pageKey="home" sectionKey="brand-title" defaultLabel="知微">
+      
       <Box sx={{ textAlign: 'center', mb: 5 }}>
         <Typography variant="h3" fontWeight={800} sx={{ fontFamily: '"方正舒体", "FZSJ-KAFJT", "KaiTi", "STKaiti", "cursive", serif', color: primaryColor, mb: 1, fontSize: { xs: '2.8rem', md: '4rem' } }}>
           {logoText}
         </Typography>
       </Box>
-      </PageSectionEditor>
+      
 
       {visibleCards.length === 0 ? (
         <Box sx={{ textAlign: 'center', mt: 6 }}>
@@ -115,7 +114,7 @@ const HomePage: React.FC = () => {
           )}
         </Box>
       ) : (
-        <PageSectionEditor pageKey="home" sectionKey="entry-cards">
+        
         <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 3, flexWrap: 'wrap', justifyContent: 'center', alignItems: isMobile ? 'center' : undefined, mb: 4 }}>
           {visibleCards.map((c) => (
             <Paper
@@ -142,16 +141,16 @@ const HomePage: React.FC = () => {
             </Paper>
           ))}
         </Box>
-        </PageSectionEditor>
+        
       )}
 
-      <PageSectionEditor pageKey="home" sectionKey="footer-text" defaultLabel="选择功能入口，开始操作">
+      
       <Box sx={{ textAlign: 'center' }}>
         <Typography variant="body1" color="text.secondary">选择功能入口，开始操作</Typography>
       </Box>
-      </PageSectionEditor>
+      
     </Box>
-    </PageEditProvider>
+    
   );
 };
 export default HomePage;
