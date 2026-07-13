@@ -512,10 +512,10 @@ const SampleEntryPage: React.FC = () => {
                 const availableMethods = getAvailableMethods(row.project_id, row.method_type);
                 return (
                 <TableRow key={row.id} hover sx={{ '&:last-child td': { borderBottom: 0 }, height: tableConfig.row_height }}>
-                  <TableCell padding="checkbox">
+                  <TableCell padding="checkbox" sx={{ width: tableConfig.checkbox_column_width }}>
                     <Checkbox size="small" checked={row.checked} onChange={() => toggleCheck(row.id)} />
                   </TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>{idx + 1}</TableCell>
+                  <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center', width: tableConfig.seq_column_width }}>{idx + 1}</TableCell>
                   {visibleLayoutFields.map(field => {
                     if (field.key === 'lab_name') {
                       // 实验室列：整页共用一个 lab（从 URL group_id 读取），不可编辑
@@ -697,7 +697,7 @@ const SampleEntryPage: React.FC = () => {
                     onClick={() => setSelectedRecordId(rec.id)}
                     selected={selectedRecordId === rec.id}
                     sx={{ '&:last-child td': { borderBottom: 0 }, cursor: 'pointer', '&.Mui-selected': { bgcolor: 'rgba(46,125,50,0.08)' } }}>
-                    <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center' }}>{recordsPage * pageSize + idx + 1}</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', textAlign: 'center', width: tableConfig.seq_column_width }}>{recordsPage * pageSize + idx + 1}</TableCell>
                     {visibleLayoutFields.map(field => renderRecordCell(rec, field, idx))}
                   </TableRow>
                 ))}

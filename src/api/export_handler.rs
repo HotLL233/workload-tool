@@ -6,10 +6,49 @@ use axum::{extract::{Query, State}, Router, routing::get};
 use axum::response::Response;
 use axum::http::{header, StatusCode};
 use serde::Deserialize;
+use serde_json;
 use crate::db::DbPool;
+use crate::repo::settings_repo;
 use super::{export_data, export_write};
 use chrono::Datelike;
 use crate::service::stats_service;
+
+/// 从 system_settings 加载导出模板并覆盖 sheet 名称和颜色
+fn apply_sheet_cfg(ws: &mut rust_xlsxwriter::Worksheet, tmpl: &Option<serde_json::Value>, sheet_id: &str) -> Result<(), String> {
+    let t = match tmpl { Some(v) => v, None => return Ok(()) };
+    let sheets = match t.get("sheets") { Some(v) => v, None => return Ok(()) };
+    let sheet = match sheets.get(sheet_id) { Some(v) => v, None => return Ok(()) };
+    if let Some(enabled) = sheet.get("enabled").and_then(|v| v.as_bool()) {
+        if !enabled { return Ok(()); }
+    }
+    if let Some(title) = sheet.get("title").and_then(|v| v.as_str()) {
+        ws.set_name(title).map_err(|e| format!("{}名称: {}", sheet_id, e))?;
+    }
+
+    // 解析 hex 颜色并设置 tab 颜色
+    fn hex_to_rgb(hex: &str) -> Option<u32> {
+        let h = hex.trim_start_matches('#');
+        if h.len() != 6 { return None; }
+        u32::from_str_radix(h, 16).ok()
+    }
+
+    if let Some(color) = sheet.get("color").and_then(|v| v.as_str()) {
+        if let Some(rgb) = hex_to_rgb(color) {
+            ws.set_tab_color(rust_xlsxwriter::Color::RGB(rgb));
+        }
+    }
+    // 列宽覆盖
+    if let Some(columns) = sheet.get("columns") {
+        if let Some(obj) = columns.as_object() {
+            for (i, (_, col_val)) in obj.iter().enumerate() {
+                if let Some(width) = col_val.get("width").and_then(|v| v.as_f64()) {
+                    ws.set_column_width(i as u16, width).ok();
+                }
+            }
+        }
+    }
+    Ok(())
+}
 
 #[derive(Deserialize, utoipa::IntoParams)]
 pub struct ExportQuery {
@@ -72,6 +111,12 @@ async fn export_excel(
         let fmt = export_write::Fmt::new();
         let mut wb = rust_xlsxwriter::Workbook::new();
 
+        // v0.4.51: 加载导出模板配置
+        let tmpl = settings_repo::get(&pool, "export_template_workload")
+            .ok()
+            .flatten()
+            .and_then(|r| serde_json::from_str::<serde_json::Value>(&r.value).ok());
+
         tracing::info!("开始导出 Excel: start={}, end={}, group_id={:?}", start, end, q.group_id);
 
         // ========== Sheet 1: 各实验室项目方法对应表 ==========
@@ -80,7 +125,10 @@ async fn export_excel(
                 tracing::info!("Sheet 1 查询完成: {} 行", data.len());
                 let ws = wb.add_worksheet();
                 match export_write::write_sheet1(ws, &data, &fmt) {
-                    Ok(_) => tracing::info!("Sheet 1 写入完成"),
+                    Ok(_) => {
+                        apply_sheet_cfg(ws, &tmpl, "sheet1")?;
+                        tracing::info!("Sheet 1 写入完成");
+                    }
                     Err(e) => return Err(format!("Sheet1写入: {}", e)),
                 }
             }
@@ -93,6 +141,7 @@ async fn export_excel(
                 tracing::info!("Sheet 2 查询完成: {} 行", data.len());
                 let ws = wb.add_worksheet();
                 export_write::write_sheet2(ws, &data, &fmt).map_err(|e| format!("Sheet2: {}", e))?;
+                apply_sheet_cfg(ws, &tmpl, "sheet2")?;
                 tracing::info!("Sheet 2 写入完成");
             }
             Err(e) => return Err(format!("Sheet2查询: {}", e)),
@@ -104,6 +153,7 @@ async fn export_excel(
                 tracing::info!("Sheet 3 查询完成: {} 行", data.len());
                 let ws = wb.add_worksheet();
                 export_write::write_sheet3(ws, &data, &fmt).map_err(|e| format!("Sheet3: {}", e))?;
+                apply_sheet_cfg(ws, &tmpl, "sheet3")?;
                 tracing::info!("Sheet 3 写入完成");
             }
             Err(e) => return Err(format!("Sheet3查询: {}", e)),
@@ -115,6 +165,7 @@ async fn export_excel(
                 tracing::info!("Sheet 4 查询完成: {} 行", data.len());
                 let ws = wb.add_worksheet();
                 export_write::write_sheet4(ws, &data, &fmt).map_err(|e| format!("Sheet4: {}", e))?;
+                apply_sheet_cfg(ws, &tmpl, "sheet4")?;
                 tracing::info!("Sheet 4 写入完成");
             }
             Err(e) => return Err(format!("Sheet4查询: {}", e)),
@@ -126,6 +177,7 @@ async fn export_excel(
                 tracing::info!("Sheet 5 查询完成: {} 行", data.len());
                 let ws = wb.add_worksheet();
                 export_write::write_sheet5(ws, &data, &fmt, "检测人").map_err(|e| format!("Sheet5: {}", e))?;
+                apply_sheet_cfg(ws, &tmpl, "sheet5")?;
                 tracing::info!("Sheet 5 写入完成");
             }
             Err(e) => return Err(format!("Sheet5查询: {}", e)),
@@ -137,6 +189,7 @@ async fn export_excel(
                 tracing::info!("Sheet 6 查询完成: {} 行", data.len());
                 let ws = wb.add_worksheet();
                 export_write::write_sheet6(ws, &data, &fmt, "检测人").map_err(|e| format!("Sheet6: {}", e))?;
+                apply_sheet_cfg(ws, &tmpl, "sheet6")?;
                 tracing::info!("Sheet 6 写入完成");
             }
             Err(e) => return Err(format!("Sheet6查询: {}", e)),
@@ -148,6 +201,7 @@ async fn export_excel(
                 tracing::info!("Sheet 7 查询完成: {} 行", data.len());
                 let ws = wb.add_worksheet();
                 export_write::write_sheet7(ws, &data, &fmt).map_err(|e| format!("Sheet7: {}", e))?;
+                apply_sheet_cfg(ws, &tmpl, "sheet7")?;
                 tracing::info!("Sheet 7 写入完成");
             }
             Err(e) => return Err(format!("Sheet7查询: {}", e)),
@@ -159,6 +213,7 @@ async fn export_excel(
                 tracing::info!("Sheet 8 查询完成: {} 行", data.len());
                 let ws = wb.add_worksheet();
                 export_write::write_sheet8(ws, &data, &fmt).map_err(|e| format!("Sheet8: {}", e))?;
+                apply_sheet_cfg(ws, &tmpl, "sheet8")?;
                 tracing::info!("Sheet 8 写入完成");
             }
             Err(e) => return Err(format!("Sheet8查询: {}", e)),
@@ -170,6 +225,7 @@ async fn export_excel(
                 tracing::info!("Sheet 9 查询完成: {} 行", data.len());
                 let ws = wb.add_worksheet();
                 export_write::write_sheet9(ws, &data, &fmt).map_err(|e| format!("Sheet9: {}", e))?;
+                apply_sheet_cfg(ws, &tmpl, "sheet9")?;
                 tracing::info!("Sheet 9 写入完成");
             }
             Err(e) => return Err(format!("Sheet9查询: {}", e)),
@@ -181,6 +237,7 @@ async fn export_excel(
                 tracing::info!("Sheet 10 查询完成: {} 行", data.len());
                 let ws = wb.add_worksheet();
                 export_write::write_sheet10(ws, &data, &fmt).map_err(|e| format!("Sheet10: {}", e))?;
+                apply_sheet_cfg(ws, &tmpl, "sheet10")?;
                 tracing::info!("Sheet 10 写入完成");
             }
             Err(e) => return Err(format!("Sheet10查询: {}", e)),
@@ -213,6 +270,7 @@ async fn export_excel(
                 ws.write_with_format(r, 3, row.record_count as f64, &fmt.fd).map_err(|e| format!("Sheet11: {}", e))?;
                 ws.write_with_format(r, 4, row.coefficient_score, &fmt.fd).map_err(|e| format!("Sheet11: {}", e))?;
             }
+            apply_sheet_cfg(ws, &tmpl, "sheet11")?;
             ws.autofit();
             tracing::info!("Sheet 11 事业部汇总写入完成");
         }
