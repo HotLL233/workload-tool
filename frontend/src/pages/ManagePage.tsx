@@ -406,7 +406,7 @@ const ManagePage: React.FC = () => {
   const delSiType = (id: number) => {
     setCa(() => async () => {
       const r = await deleteSampleInfoType(id);
-      if (r.code === 0) { sm('已停用（可在下方恢复）'); loadSiTypes(); }
+      if (r.code === 0) { sm('已移入回收站'); loadSiTypes(); }
       else sm(r.message, true);
       setCo(false);
     });
@@ -417,6 +417,8 @@ const ManagePage: React.FC = () => {
     if (r.code === 0) { sm('已恢复启用'); loadSiTypes(); }
     else sm(r.message, true);
   };
+  // 仅显示启用的检测类型（已停用移至回收站）
+  const activeSiTypes = siTypes.filter(t => t.is_active);
 
   // ④ 列配置 CRUD
   const saveCol = async () => {
@@ -1217,7 +1219,7 @@ const ManagePage: React.FC = () => {
       <Paper elevation={0} sx={{ p: 2, mb: 3, borderRadius: R, border: '1px solid rgba(0,0,0,0.08)' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
           <Typography variant="subtitle2" fontWeight={700}>① 检测类型</Typography>
-          <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => { setSiTypeEdit(null); setSiTypeForm({ type_key: '', label: '', description: '', color: '#2e7d32', sort_order: (siTypes.length + 1), is_active: 1 }); }}
+          <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => { setSiTypeEdit(null); setSiTypeForm({ type_key: '', label: '', description: '', color: '#2e7d32', sort_order: (activeSiTypes.length + 1), is_active: 1 }); }}
             sx={{ borderRadius: R, borderColor: '#2e7d32', color: '#2e7d32' }}>新建类型</Button>
         </Box>
 
@@ -1247,9 +1249,9 @@ const ManagePage: React.FC = () => {
               <TableCell align="right" sx={{ fontWeight: 600 }}>操作</TableCell>
             </TableRow></TableHead>
             <TableBody>
-              {siTypes.length === 0 ? (
+              {activeSiTypes.length === 0 ? (
                 <TableRow><TableCell colSpan={7} align="center" sx={{ color: '#999', py: 3 }}>暂无检测类型</TableCell></TableRow>
-              ) : siTypes.map(t => (
+              ) : activeSiTypes.map(t => (
                 <TableRow key={t.id} hover>
                   <TableCell>{t.label}</TableCell>
                   <TableCell>{t.type_key}</TableCell>

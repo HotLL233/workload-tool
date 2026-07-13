@@ -5,6 +5,7 @@ import HomeIcon from '@mui/icons-material/Home'; import SettingsIcon from '@mui/
 import { useUser } from '../UserContext';
 import { hasAnyPrefix } from '../constants/permissions';
 import UserMenu from './UserMenu';
+import BackToTop from './BackToTop';
 
 const NAV_ITEMS = [
   { label: '主页', path: '/', icon: <HomeIcon /> },
@@ -83,6 +84,7 @@ const Layout: React.FC = () => {
         <Box sx={{ textAlign: 'left', px: 1 }}>{F_LIST.map((text, i) => <Typography key={i} variant="body2" sx={{ py: 0.5 }}>{text}</Typography>)}</Box>
         <Typography variant="caption" sx={{ mt: 3, display: 'block', color: 'text.disabled', textAlign: 'center' }}>&copy; 2026 HotLL</Typography>
       </DialogContent>
+      <BackToTop />
     </Dialog>
   </Box>);
 };

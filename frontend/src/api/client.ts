@@ -458,6 +458,8 @@ export const updateSampleInfoType = (id: number, data: { type_key?: string; labe
 
 export const deleteSampleInfoType = (id: number): Promise<ApiResponse<null>> =>
   client.delete(`/sample-info-types/${id}`).then(r => r.data);
+export const deleteSampleInfoTypePermanent = (id: number): Promise<ApiResponse<null>> =>
+  client.delete(`/sample-info-types/${id}/permanent`).then(r => r.data);
 
 // ========== v0.4.23: 样品信息登记导出（独立接口） ==========
 export const exportSampleInfo = (params: { start?: string; end?: string }): Promise<void> =>

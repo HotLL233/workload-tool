@@ -174,6 +174,21 @@ pub fn soft_delete(pool: &DbPool, id: i64) -> Result<()> {
     Ok(())
 }
 
+/// 永久删除：DELETE FROM（仅从回收站）
+pub fn permanent_delete(pool: &DbPool, id: i64) -> Result<()> {
+    let mut conn = pool.get()?;
+    let tx = conn.transaction()?;
+    tx.execute("DELETE FROM sample_info_column_visibility WHERE type_key IN (SELECT type_key FROM sample_info_types WHERE id=?1)", [id])?;
+    tx.execute("DELETE FROM sample_info_types WHERE id=?1", [id])?;
+    let detail = format!("永久删除检测类型#{}", id);
+    audit_repo::log_on_conn_with_module(
+        &tx, "delete", "sample_info_types", Some(id),
+        "system", &detail, "sample_info",
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
 fn get_by_id(conn: &rusqlite::Connection, id: i64) -> Result<SampleInfoType> {
     conn.query_row(
         "SELECT id, type_key, label, description, color, sort_order, is_active, created_at \

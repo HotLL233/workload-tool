@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, State},
     http::HeaderMap,
-    Json, Router, routing::{get, put},
+    Json, Router, routing::{get, put, delete as axum_delete},
 };
 use crate::db::DbPool;
 use crate::error::{AppError, Result};
@@ -17,6 +17,7 @@ pub fn router(pool: DbPool) -> Router {
         .route("/api/sample-info-types", get(list).post(create))
         .route("/api/sample-info-types/all", get(list_all))
         .route("/api/sample-info-types/:id", put(update).delete(soft_delete))
+        .route("/api/sample-info-types/:id/permanent", axum_delete(permanent_delete))
         .with_state(pool)
 }
 
@@ -75,5 +76,15 @@ async fn soft_delete(
 ) -> Result<Json<ApiResponse<()>>> {
     require_admin(&headers)?;
     sample_info_type_repo::soft_delete(&pool, id)?;
-    Ok(Json(ApiResponse::ok_msg("删除成功")))
+    Ok(Json(ApiResponse::ok_msg("已移入回收站")))
+}
+
+async fn permanent_delete(
+    State(pool): State<DbPool>,
+    headers: HeaderMap,
+    Path(id): Path<i64>,
+) -> Result<Json<ApiResponse<()>>> {
+    require_admin(&headers)?;
+    sample_info_type_repo::permanent_delete(&pool, id)?;
+    Ok(Json(ApiResponse::ok_msg("彻底删除成功")))
 }

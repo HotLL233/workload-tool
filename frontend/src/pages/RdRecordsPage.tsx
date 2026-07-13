@@ -8,6 +8,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import SaveIcon from '@mui/icons-material/Save';
+import TruncatedCell from '../components/TruncatedCell';
 import { useNavigate } from 'react-router-dom';
 import type { WorkRecord, RdRecordColumn, Project, Method, Division } from '../types';
 import { getRdRecords, sampleRdRecord, getGroups, getRdRecordColumns, getProjects, getMethods, updateRdRecord, getSetting, getDivisions } from '../api/client';
@@ -299,8 +300,8 @@ const RdRecordsPage: React.FC = () => {
                     );
                   }
                   return (
-                    <TableCell key={col.name} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap', maxWidth: col.width || 100, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {getFieldValue(rec, col.name)}
+                    <TableCell key={col.name} sx={{ fontSize: '0.8rem', whiteSpace: 'nowrap', maxWidth: col.width || 100 }}>
+                      <TruncatedCell value={getFieldValue(rec, col.name)} maxWidth={col.width || 100} />
                     </TableCell>
                   );
                 })}
