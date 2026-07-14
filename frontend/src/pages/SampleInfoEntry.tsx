@@ -388,8 +388,12 @@ const SampleInfoEntry: React.FC = () => {
               <input type="file" hidden multiple accept=".pdf,.doc,.docx"
                 onChange={e => {
                   const selected = Array.from(e.target.files || []);
-                  const existing = rows[idx]._pendingFiles || [];
-                  updateRow(idx, '_pendingFiles', [...existing, ...selected]);
+                  // 使用 setRows 回调读取最新 state，避免闭包陈旧
+                  setRows(prev => prev.map((r, i) => {
+                    if (i !== idx) return r;
+                    const existing: File[] = r._pendingFiles || [];
+                    return { ...r, _pendingFiles: [...existing, ...selected] };
+                  }));
                   e.target.value = '';
                 }} />
             </Button>
