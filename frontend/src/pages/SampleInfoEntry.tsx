@@ -13,6 +13,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import CloseIcon from '@mui/icons-material/Close';
 import DescriptionIcon from '@mui/icons-material/Description';
 import {
   getSampleInfoRecords, createSampleInfo, updateSampleInfo, updateSampleInfoStatus,
@@ -21,6 +22,7 @@ import {
   deleteSampleInfoAttachment, batchGetSampleInfoAttachments, getSetting,
 } from '../api/client';
 import type { FieldDef, TableConfig } from '../types/layout';
+import TruncatedCell from '../components/TruncatedCell';
 import { DEFAULT_TABLE_CONFIG } from '../types/layout';
 import type { SampleInfoRecord, SampleInfoType, Division, SampleInfoColumn, SampleInfoAttachment } from '../types';
 import { useUser } from '../UserContext';
@@ -237,7 +239,8 @@ const SampleInfoEntry: React.FC = () => {
   const updateRow = (idx: number, key: string, val: any) => {
     setRows(prev => prev.map((r, i) => {
       if (i !== idx) return r;
-      if (PREDEFINED_FIELDS.has(key)) return { ...r, [key]: val };
+      // 内部属性（以 _ 开头）直接存顶层
+      if (key.startsWith('_') || PREDEFINED_FIELDS.has(key)) return { ...r, [key]: val };
       return { ...r, _extra: { ...r._extra, [key]: val } };
     }));
   };
@@ -295,7 +298,20 @@ const SampleInfoEntry: React.FC = () => {
         if (Object.keys(extra_fields).length > 0) {
           presetData.extra_fields = extra_fields;
         }
-        await createSampleInfo(presetData);
+        // 提交记录
+        const result = await createSampleInfo(presetData);
+        // 提交成功后上传附件
+        const createdRecord = result?.data;
+        if (createdRecord?.id) {
+          const pendingFiles: File[] = row._pendingFiles || [];
+          for (const file of pendingFiles) {
+            try {
+              await uploadSampleInfoAttachment(createdRecord.id, file);
+            } catch (fe: any) {
+              errors.push(`附件上传失败: ${file.name} - ${fe.message || ''}`);
+            }
+          }
+        }
         submitted++;
       } catch (e: any) {
         errors.push(`第 ${i + 1} 行: ${e.message || '提交失败'}`);
@@ -363,11 +379,41 @@ const SampleInfoEntry: React.FC = () => {
     const val = getRowValue(rows[idx], col.field_key);
     switch (col.data_type) {
       case 'attachment':
+        const files = rows[idx]._pendingFiles || [];
         return (
-          <Button size="small" startIcon={<AttachFileIcon />} disabled
-            sx={{ fontSize: '0.7rem', borderRadius: R, color: '#999' }}>
-            保存后上传
-          </Button>
+          <Box>
+            <Button component="label" size="small" startIcon={<AttachFileIcon />}
+              sx={{ fontSize: '0.7rem', borderRadius: R, color: '#2e7d32', textTransform: 'none' }}>
+              选择文件
+              <input type="file" hidden multiple accept=".pdf,.doc,.docx,.xlsx,.jpg,.png"
+                onChange={e => {
+                  const selected = Array.from(e.target.files || []);
+                  const existing = rows[idx]._pendingFiles || [];
+                  updateRow(idx, '_pendingFiles', [...existing, ...selected]);
+                  e.target.value = '';
+                }} />
+            </Button>
+            {files.length > 0 && (
+              <Box sx={{ mt: 0.5 }}>
+                {files.map((f: File, fi: number) => (
+                  <Box key={fi} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.7rem', color: '#666' }}>
+                    <AttachFileIcon sx={{ fontSize: 14 }} />
+                    <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+                      {f.name}
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                      ({(f.size / 1024).toFixed(0)}KB)
+                    </Typography>
+                    <IconButton size="small" sx={{ p: 0.3 }} onClick={() => {
+                      const updated = [...files];
+                      updated.splice(fi, 1);
+                      updateRow(idx, '_pendingFiles', updated);
+                    }}><CloseIcon fontSize="small" /></IconButton>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
         );
       case 'select':
         return (
@@ -607,8 +653,8 @@ const SampleInfoEntry: React.FC = () => {
                           </TableCell>
                           <TableCell sx={{ fontSize: '0.875rem', color: '#999', borderColor: '#e0e0e0' }}>#{r.seq_no}</TableCell>
                           {listColumns.filter(c => !['status', 'seq_no'].includes(c.field_key)).map(col => (
-                            <TableCell key={col.field_key} sx={{ fontSize: '0.875rem', minWidth: col.data_type === 'attachment' ? 130 : col.width || 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', borderColor: '#e0e0e0' }}>
-                              {renderCellValue(col, r)}
+                            <TableCell key={col.field_key} sx={{ fontSize: '0.875rem', minWidth: col.data_type === 'attachment' ? 130 : col.width || 80, borderColor: '#e0e0e0' }}>
+                              {col.data_type === 'attachment' ? renderCellValue(col, r) : <TruncatedCell value={renderCellValue(col, r)} maxWidth={col.width || 100} />}
                             </TableCell>
                           ))}
                           <TableCell sx={{ borderColor: '#e0e0e0' }}>{expandedId === r.id ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}</TableCell>

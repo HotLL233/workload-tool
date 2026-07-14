@@ -51,7 +51,7 @@ const DEFAULT_SHEETS_WORKLOAD: Record<string, SheetConfig> = {
   sheet8: { id:'sheet8', title:'项目总表', color:'#FFC107', enabled:true, columns:{ project_name:{label:'项目',width:18}, lab_name:{label:'实验室',width:14}, method_name:{label:'方法',width:30}, multiplier:{label:'单价倍率',width:10}, quantity:{label:'数量',width:12} } },
   sheet9: { id:'sheet9', title:'仪器汇总表', color:'#9E9E9E', enabled:true, columns:{ instrument:{label:'仪器',width:14}, quantity:{label:'检测量',width:12}, total:{label:'总数量',width:12} } },
   sheet10:{ id:'sheet10', title:'理化汇总表', color:'#795548', enabled:true, columns:{ project_name:{label:'项目',width:18}, method_name:{label:'理化方法',width:30}, quantity:{label:'数量',width:12} } },
-  sheet11:{ id:'sheet11', title:'类型汇总表', color:'#00BCD4', enabled:true, columns:{ type_name:{label:'检测类型',width:14}, quantity:{label:'数量',width:12} } },
+  sheet11:{ id:'sheet11', title:'事业部汇总', color:'#673AB7', enabled:true, columns:{ division_name:{label:'事业部',width:16}, lab_count:{label:'实验室数',width:10}, total_quantity:{label:'检测数量',width:10}, record_count:{label:'记录数',width:10}, coefficient_score:{label:'系数分',width:10} } },
 };
 
 // 研发送样复用分析检测的 sheet 定义

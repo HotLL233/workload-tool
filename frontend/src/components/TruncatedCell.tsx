@@ -2,18 +2,25 @@ import React from 'react';
 import { Tooltip, Box } from '@mui/material';
 
 interface Props {
-  value: string | number | null | undefined;
+  value: React.ReactNode;
   maxWidth?: number;
-  /** 悬停时显示的完整文字（默认取 value 的字符串） */
   title?: string;
 }
 
 const R = '2px';
 
 const TruncatedCell: React.FC<Props> = ({ value, maxWidth = 140, title }) => {
-  const str = value == null ? '' : String(value);
-  if (!str) return <>-</>;
-  // 短字符串直接显示，不加 tooltip（节省无意义 hover）
+  if (value == null || value === '') return <>-</>;
+  // 如果是 ReactNode（非纯字符串），直接包裹 truncation 即可
+  if (typeof value !== 'string' && typeof value !== 'number') {
+    return (
+      <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth }}>
+        {value}
+      </Box>
+    );
+  }
+  const str = String(value);
+  // 短字符串直接显示
   if (str.length <= Math.floor(maxWidth / 8)) {
     return (
       <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth }}>
