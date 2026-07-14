@@ -385,7 +385,7 @@ const SampleInfoEntry: React.FC = () => {
             <Button component="label" size="small" startIcon={<AttachFileIcon />}
               sx={{ fontSize: '0.7rem', borderRadius: R, color: '#2e7d32', textTransform: 'none' }}>
               选择文件
-              <input type="file" hidden multiple accept=".pdf,.doc,.docx,.xlsx,.jpg,.png"
+              <input type="file" hidden multiple accept=".pdf,.doc,.docx"
                 onChange={e => {
                   const selected = Array.from(e.target.files || []);
                   const existing = rows[idx]._pendingFiles || [];

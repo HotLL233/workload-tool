@@ -520,9 +520,7 @@ export const getSampleInfoAttachments = (recordId: number): Promise<ApiResponse<
 export const uploadSampleInfoAttachment = (recordId: number, file: File): Promise<ApiResponse<SampleInfoAttachment>> => {
   const fd = new FormData();
   fd.append('file', file);
-  return client.post(`/sample-info/${recordId}/attachments`, fd, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }).then(r => r.data);
+  return client.post(`/sample-info/${recordId}/attachments`, fd).then(r => r.data);
 };
 
 export const getSampleInfoAttachmentUrl = (attId: number): string =>
