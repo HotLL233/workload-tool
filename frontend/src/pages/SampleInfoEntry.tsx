@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, TextField, Button, Grid, IconButton,
@@ -78,6 +78,8 @@ const SampleInfoEntry: React.FC = () => {
 
   // 多行表格
   const [rows, setRows] = useState<RowData[]>([emptyRow([], user)]);
+  // v0.4.58: useRef 存储待上传文件，彻底避开 React 闭包陈旧问题
+  const pendingFilesRef = useRef<Map<number, File[]>>(new Map());
   const [submittedAt, setSubmittedAt] = useState(new Date().toISOString().slice(0, 16));
   const [snack, setSnack] = useState<{ open: boolean; msg: string; sev: 'success' | 'error' }>({ open: false, msg: '', sev: 'success' });
 
@@ -300,10 +302,10 @@ const SampleInfoEntry: React.FC = () => {
         }
         // 提交记录
         const result = await createSampleInfo(presetData);
-        // 提交成功后上传附件
+        // 提交成功后上传附件（从 ref 读取，避免闭包陈旧）
         const createdRecord = result?.data;
         if (createdRecord?.id) {
-          const pendingFiles: File[] = row._pendingFiles || [];
+          const pendingFiles = pendingFilesRef.current.get(i) || [];
           for (const file of pendingFiles) {
             try {
               await uploadSampleInfoAttachment(createdRecord.id, file);
@@ -379,7 +381,7 @@ const SampleInfoEntry: React.FC = () => {
     const val = getRowValue(rows[idx], col.field_key);
     switch (col.data_type) {
       case 'attachment':
-        const files = rows[idx]._pendingFiles || [];
+        const files = pendingFilesRef.current.get(idx) || [];
         return (
           <Box>
             <Button component="label" size="small" startIcon={<AttachFileIcon />}
@@ -388,12 +390,10 @@ const SampleInfoEntry: React.FC = () => {
               <input type="file" hidden multiple accept=".pdf,.doc,.docx"
                 onChange={e => {
                   const selected = Array.from(e.target.files || []);
-                  // 使用 setRows 回调读取最新 state，避免闭包陈旧
-                  setRows(prev => prev.map((r, i) => {
-                    if (i !== idx) return r;
-                    const existing: File[] = r._pendingFiles || [];
-                    return { ...r, _pendingFiles: [...existing, ...selected] };
-                  }));
+                  const existing = pendingFilesRef.current.get(idx) || [];
+                  pendingFilesRef.current.set(idx, [...existing, ...selected]);
+                  // 强制重渲染显示文件列表
+                  setRows(prev => prev.map((r, i) => i === idx ? { ...r, _pendingCount: (r._pendingCount || 0) + selected.length } : r));
                   e.target.value = '';
                 }} />
             </Button>
